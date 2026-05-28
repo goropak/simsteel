@@ -11,17 +11,9 @@
 
 - 공식 URL: https://environmentclearance.nic.in/writereaddata/online/EC/290820211p0v0e0jzql25210445TEFR.pdf
 - 로컬 경로: ./pdfs/jsw-utkal-tefr-2021.pdf
-- 다운로드 상태: **실패** — 사용자 수동 다운로드 필요 (프록시 차단)
-- 다운로드일: —
-
-## 수동 다운로드 방법
-
-```bash
-curl -L -o ~/projects/simsteel/references/pdfs/jsw-utkal-tefr-2021.pdf \
-  "https://environmentclearance.nic.in/writereaddata/online/EC/290820211p0v0e0jzql25210445TEFR.pdf"
-```
-
-또는 브라우저에서 위 URL 직접 접속 후 저장.
+- 다운로드 상태: **성공 (수동, 2026-05-28)**
+- 다운로드일: 2026-05-28
+- 파일 크기: 7.0 MB
 
 ## 프로젝트/문서 개요
 

@@ -11,17 +11,9 @@
 
 - 공식 URL: https://energyandcleanair.org/wp/wp-content/uploads/2022/01/BRIEFING_-Health-Impacts-Assessment-of-Integrated-Steel-Plant-JSW-Utkal-Steel-Limited-Odisha-India.pdf
 - 로컬 경로: ./pdfs/jsw-utkal-health-2022.pdf
-- 다운로드 상태: **실패** — 사용자 수동 다운로드 필요 (프록시 차단)
-- 다운로드일: —
-
-## 수동 다운로드 방법
-
-```bash
-curl -L -o ~/projects/simsteel/references/pdfs/jsw-utkal-health-2022.pdf \
-  "https://energyandcleanair.org/wp/wp-content/uploads/2022/01/BRIEFING_-Health-Impacts-Assessment-of-Integrated-Steel-Plant-JSW-Utkal-Steel-Limited-Odisha-India.pdf"
-```
-
-또는 브라우저에서 위 URL 직접 접속 후 저장.
+- 다운로드 상태: **성공 (수동, 2026-05-28)**
+- 다운로드일: 2026-05-28
+- 파일 크기: 837 KB
 
 ## 프로젝트/문서 개요
 

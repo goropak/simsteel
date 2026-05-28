@@ -11,17 +11,8 @@
 
 - 공식 URL: https://group.jsw.in/sites/default/files/assets/downloads/steel/IR/Environmental%20Clearances/230915-EC-Revalidation-ISP.pdf
 - 로컬 경로: ./pdfs/jsw-utkal-ec-2023.pdf
-- 다운로드 상태: **실패** — 사용자 수동 다운로드 필요 (프록시 차단)
+- 다운로드 상태: **미확보** — URL만 보관, 회사 서버 접근 제한
 - 다운로드일: —
-
-## 수동 다운로드 방법
-
-```bash
-curl -L -o ~/projects/simsteel/references/pdfs/jsw-utkal-ec-2023.pdf \
-  "https://group.jsw.in/sites/default/files/assets/downloads/steel/IR/Environmental%20Clearances/230915-EC-Revalidation-ISP.pdf"
-```
-
-또는 브라우저에서 위 URL 직접 접속 후 저장.
 
 ## 프로젝트/문서 개요
 

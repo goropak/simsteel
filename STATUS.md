@@ -6,10 +6,12 @@
 
 ## Now
 
-v0.1 — 도시 골격 완성.
+v0.1 — 도시 골격 + references 시스템 완성.
 - 폴더 구조 생성 (references/, data/, src/, public/)
-- 참조 자료 시스템(references/) 구축
-- facility-presets.json TEFR 기반 초안 작성
+- **references/ 시스템 활성화 완료**
+  - PDF 6개 (Tier 1: 3개, Tier 2: 2개, Tier 3: 1개) — 총 약 45.5 MB
+  - 메타파일 7개 (보유 6 + 미확보 1)
+- facility-presets.json TEFR 기반 초안 작성 (11개 카테고리, 53개 설비)
 - 코드 미작성. UI 미착수.
 
 ## Next
