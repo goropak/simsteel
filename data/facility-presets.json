@@ -1,0 +1,921 @@
+{
+  "version": "0.1",
+  "schema": "facility-presets-v1",
+  "notes": "Layer 1 (읽기 전용 프리셋). 출처: TEFR (M.N. Dastur & Company, 2021). footprint_cells 값은 TEFR에 치수 미명시 시 placeholder 처리 — 사용자 편집 필요.",
+  "categories": [
+    {
+      "id": "raw_materials",
+      "name": "원료 처리",
+      "facilities": [
+        {
+          "id": "iron_ore_yard",
+          "name": "철광석 야드",
+          "category": "raw_materials",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "~3,500 acres 부지 내 원료 야드",
+              "footprint_cells": { "width": 100, "height": 60 },
+              "footprint_meters": { "width": 500, "height": 300 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "coal_yard",
+          "name": "석탄 야드",
+          "category": "raw_materials",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "코크스 및 PCI 석탄",
+              "footprint_cells": { "width": 80, "height": 50 },
+              "footprint_meters": { "width": 400, "height": 250 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "stacker_reclaimer",
+          "name": "스태커/리클레이머",
+          "category": "raw_materials",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "원료 처리용",
+              "footprint_cells": { "width": 10, "height": 60 },
+              "footprint_meters": { "width": 50, "height": 300 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "unloader",
+          "name": "언로더 (항만/육상)",
+          "category": "raw_materials",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "원료 하역",
+              "footprint_cells": { "width": 10, "height": 10 },
+              "footprint_meters": { "width": 50, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "blending_bed",
+          "name": "블렌딩 베드",
+          "category": "raw_materials",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "원료 균질화",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pellet",
+      "name": "펠릿 플랜트",
+      "facilities": [
+        {
+          "id": "pellet_plant",
+          "name": "펠릿 플랜트",
+          "category": "pellet",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (8 MTPA)",
+              "capacity": "8 MTPA",
+              "footprint_cells": { "width": 40, "height": 30 },
+              "footprint_meters": { "width": 200, "height": 150 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준 용량. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "concentrate_yard",
+          "name": "정광 야드",
+          "category": "pellet",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "펠릿 원료 저장",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "pellet_stock_yard",
+          "name": "펠릿 저장 야드",
+          "category": "pellet",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "완성 펠릿 저장",
+              "footprint_cells": { "width": 40, "height": 25 },
+              "footprint_meters": { "width": 200, "height": 125 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sintering",
+      "name": "소결",
+      "facilities": [
+        {
+          "id": "sinter_machine",
+          "name": "소결기",
+          "category": "sintering",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "소결광 생산",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "mixing_bin",
+          "name": "혼합 빈",
+          "category": "sintering",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "소결 원료 혼합",
+              "footprint_cells": { "width": 10, "height": 10 },
+              "footprint_meters": { "width": 50, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "sinter_cooler",
+          "name": "소결 냉각기",
+          "category": "sintering",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "소결광 냉각",
+              "footprint_cells": { "width": 15, "height": 15 },
+              "footprint_meters": { "width": 75, "height": 75 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "sinter_yard",
+          "name": "소결광 저장 야드",
+          "category": "sintering",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "완성 소결광 저장",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coke_making",
+      "name": "코크스 제조",
+      "facilities": [
+        {
+          "id": "coke_oven_battery",
+          "name": "코크스 오븐 배터리",
+          "category": "coke_making",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (62-oven battery)",
+              "capacity": "62 ovens/배터리",
+              "footprint_cells": { "width": 60, "height": 20 },
+              "footprint_meters": { "width": 300, "height": 100 },
+              "editable": false,
+              "notes": "TEFR 기준 62 ovens/배터리. 배터리 수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "coal_tower",
+          "name": "석탄 타워",
+          "category": "coke_making",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "코킹 석탄 공급",
+              "footprint_cells": { "width": 6, "height": 6 },
+              "footprint_meters": { "width": 30, "height": 30 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "cdq",
+          "name": "건식 소화 설비 (CDQ)",
+          "category": "coke_making",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "코크스 건식 소화",
+              "footprint_cells": { "width": 20, "height": 15 },
+              "footprint_meters": { "width": 100, "height": 75 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "coke_yard",
+          "name": "코크스 야드",
+          "category": "coke_making",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "완성 코크스 저장",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "byproduct_plant",
+          "name": "부산물 처리 플랜트",
+          "category": "coke_making",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "COG 정제, 타르, 벤졸",
+              "footprint_cells": { "width": 25, "height": 20 },
+              "footprint_meters": { "width": 125, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ironmaking",
+      "name": "고로 (선철 제조)",
+      "facilities": [
+        {
+          "id": "blast_furnace",
+          "name": "고로",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (5,350 m³)",
+              "capacity": "5,350 m³",
+              "footprint_cells": { "width": 20, "height": 20 },
+              "footprint_meters": { "width": 100, "height": 100 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준. 정확 치수는 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "hot_stove",
+          "name": "열풍로 (Hot Stove)",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "고로 1기당 3~4기",
+              "footprint_cells": { "width": 12, "height": 12 },
+              "footprint_meters": { "width": 60, "height": 60 },
+              "editable": false,
+              "notes": "1기 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "cast_house",
+          "name": "출선장 (Cast House)",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "선철 출선 처리",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "gas_cleaning",
+          "name": "가스 청정 설비",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "고로가스 청정",
+              "footprint_cells": { "width": 15, "height": 15 },
+              "footprint_meters": { "width": 75, "height": 75 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "slag_granulator",
+          "name": "슬래그 수쇄 설비",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "고로 슬래그 처리",
+              "footprint_cells": { "width": 10, "height": 10 },
+              "footprint_meters": { "width": 50, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "torpedo_car_line",
+          "name": "토페도카 라인",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "용선 수송 (고로→전로)",
+              "footprint_cells": { "width": 6, "height": 60 },
+              "footprint_meters": { "width": 30, "height": 300 },
+              "editable": false,
+              "notes": "선로 길이는 레이아웃에 따라 가변. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "blower_house",
+          "name": "송풍기실 (Blower House)",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "고로 열풍 공급",
+              "footprint_cells": { "width": 15, "height": 10 },
+              "footprint_meters": { "width": 75, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "charging_system",
+          "name": "장입 시스템",
+          "category": "ironmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "고로 원료 장입",
+              "footprint_cells": { "width": 10, "height": 10 },
+              "footprint_meters": { "width": 50, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dr_plant",
+      "name": "직접환원철 (DR Plant)",
+      "facilities": [
+        {
+          "id": "cog_dr_plant",
+          "name": "COG 기반 DR 플랜트",
+          "category": "dr_plant",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (1.2 MTPA)",
+              "capacity": "1.2 MTPA",
+              "footprint_cells": { "width": 30, "height": 25 },
+              "footprint_meters": { "width": 150, "height": 125 },
+              "editable": false,
+              "notes": "TEFR 기준 용량. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "steelmaking",
+      "name": "제강",
+      "facilities": [
+        {
+          "id": "bof_350t",
+          "name": "전로 (BOF) 350t",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 350t",
+              "capacity": "350t / 히트",
+              "footprint_cells": { "width": 25, "height": 20 },
+              "footprint_meters": { "width": 125, "height": 100 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "bof_180t",
+          "name": "전로 (BOF) 180t",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 180t",
+              "capacity": "180t / 히트",
+              "footprint_cells": { "width": 20, "height": 18 },
+              "footprint_meters": { "width": 100, "height": 90 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "ladle_furnace",
+          "name": "레이들 퍼니스 (LF)",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "2차 정련",
+              "footprint_cells": { "width": 12, "height": 10 },
+              "footprint_meters": { "width": 60, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "rh_degasser",
+          "name": "RH 탈가스 설비",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "진공 탈가스 정련",
+              "footprint_cells": { "width": 15, "height": 12 },
+              "footprint_meters": { "width": 75, "height": 60 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "slab_caster",
+          "name": "슬래브 연속 주조기 (2-strand)",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 2-strand",
+              "capacity": "2 strand",
+              "footprint_cells": { "width": 20, "height": 40 },
+              "footprint_meters": { "width": 100, "height": 200 },
+              "editable": false,
+              "notes": "TEFR 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "billet_caster",
+          "name": "빌릿 연속 주조기",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "빌릿 연속 주조",
+              "footprint_cells": { "width": 15, "height": 30 },
+              "footprint_meters": { "width": 75, "height": 150 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "beam_blank_caster",
+          "name": "빔 블랭크 연속 주조기",
+          "category": "steelmaking",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "빔 블랭크 주조",
+              "footprint_cells": { "width": 15, "height": 30 },
+              "footprint_meters": { "width": 75, "height": 150 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rolling",
+      "name": "압연",
+      "facilities": [
+        {
+          "id": "hot_strip_mill",
+          "name": "열연 스트립 밀 (HSM)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (5.5 MTPA)",
+              "capacity": "5.5 MTPA",
+              "footprint_cells": { "width": 60, "height": 30 },
+              "footprint_meters": { "width": 300, "height": 150 },
+              "editable": false,
+              "notes": "TEFR 기준 용량. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "plate_mill",
+          "name": "후판 밀 (Plate Mill)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (1.5 MTPA)",
+              "capacity": "1.5 MTPA",
+              "footprint_cells": { "width": 50, "height": 25 },
+              "footprint_meters": { "width": 250, "height": 125 },
+              "editable": false,
+              "notes": "TEFR 기준 용량. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "pltcm",
+          "name": "PLTCM (냉연 연속 압연)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (2.3 MTPA)",
+              "capacity": "2.3 MTPA",
+              "footprint_cells": { "width": 50, "height": 25 },
+              "footprint_meters": { "width": 250, "height": 125 },
+              "editable": false,
+              "notes": "TEFR 기준 용량. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "cal",
+          "name": "연속 어닐링 라인 (CAL)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "냉연 어닐링",
+              "footprint_cells": { "width": 40, "height": 20 },
+              "footprint_meters": { "width": 200, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "cgl",
+          "name": "연속 용융 아연도금 라인 (CGL)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "아연도금 강판",
+              "footprint_cells": { "width": 40, "height": 20 },
+              "footprint_meters": { "width": 200, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "ccl",
+          "name": "연속 칼라 코팅 라인 (CCL)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "컬러 코팅 강판",
+              "footprint_cells": { "width": 35, "height": 18 },
+              "footprint_meters": { "width": 175, "height": 90 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "tinplate_mill",
+          "name": "주석도금 라인 (Tinplate)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "주석도금 강판",
+              "footprint_cells": { "width": 35, "height": 18 },
+              "footprint_meters": { "width": 175, "height": 90 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "rebar_mill",
+          "name": "철근 압연 밀",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "철근 생산",
+              "footprint_cells": { "width": 40, "height": 20 },
+              "footprint_meters": { "width": 200, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "wire_rod_mill",
+          "name": "선재 압연 밀 (Wire Rod)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "선재 생산",
+              "footprint_cells": { "width": 40, "height": 20 },
+              "footprint_meters": { "width": 200, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "medium_section_mill",
+          "name": "중형 형강 밀 (Medium Section)",
+          "category": "rolling",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "H형강, I형강 등",
+              "footprint_cells": { "width": 45, "height": 22 },
+              "footprint_meters": { "width": 225, "height": 110 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "byproduct_gas",
+      "name": "부생가스 처리",
+      "facilities": [
+        {
+          "id": "tar_distillation",
+          "name": "타르 증류 플랜트",
+          "category": "byproduct_gas",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (0.3 MTPA)",
+              "capacity": "0.3 MTPA",
+              "footprint_cells": { "width": 20, "height": 15 },
+              "footprint_meters": { "width": 100, "height": 75 },
+              "editable": false,
+              "notes": "TEFR 기준 용량. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "benzol_refining",
+          "name": "벤졸 정제 플랜트",
+          "category": "byproduct_gas",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "벤졸, 톨루엔, 자일렌 등",
+              "footprint_cells": { "width": 15, "height": 12 },
+              "footprint_meters": { "width": 75, "height": 60 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auxiliary",
+      "name": "부대 설비",
+      "facilities": [
+        {
+          "id": "calcining_plant",
+          "name": "석회 소성로 (Calcining Plant)",
+          "category": "auxiliary",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (600 tpd)",
+              "capacity": "600 tpd",
+              "footprint_cells": { "width": 20, "height": 15 },
+              "footprint_meters": { "width": 100, "height": 75 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "air_separation_plant",
+          "name": "공기 분리 플랜트 (ASP)",
+          "category": "auxiliary",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (2,100 tpd)",
+              "capacity": "2,100 tpd 산소",
+              "footprint_cells": { "width": 25, "height": 20 },
+              "footprint_meters": { "width": 125, "height": 100 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "captive_power_plant",
+          "name": "자가발전소 (CPP)",
+          "category": "auxiliary",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준 (300 MW)",
+              "capacity": "300 MW",
+              "footprint_cells": { "width": 40, "height": 30 },
+              "footprint_meters": { "width": 200, "height": 150 },
+              "editable": false,
+              "notes": "TEFR Table 1 기준. 치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "cement_plant",
+          "name": "시멘트 플랜트",
+          "category": "auxiliary",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "슬래그 시멘트",
+              "footprint_cells": { "width": 30, "height": 25 },
+              "footprint_meters": { "width": 150, "height": 125 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "utilities",
+      "name": "유틸리티",
+      "facilities": [
+        {
+          "id": "compressed_air",
+          "name": "압축공기 설비",
+          "category": "utilities",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "공정 전반 압축공기 공급",
+              "footprint_cells": { "width": 10, "height": 8 },
+              "footprint_meters": { "width": 50, "height": 40 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "chilled_water",
+          "name": "냉수 설비",
+          "category": "utilities",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "공정 냉각 용수",
+              "footprint_cells": { "width": 10, "height": 8 },
+              "footprint_meters": { "width": 50, "height": 40 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "process_steam",
+          "name": "공정 스팀 설비",
+          "category": "utilities",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "공정 스팀 공급",
+              "footprint_cells": { "width": 12, "height": 10 },
+              "footprint_meters": { "width": 60, "height": 50 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        },
+        {
+          "id": "water_treatment",
+          "name": "용수 처리 설비",
+          "category": "utilities",
+          "presets": [
+            {
+              "source": "TEFR (DASTUR 2021)",
+              "name": "Utkal 표준",
+              "capacity": "취수, 정수, 순환냉각, 폐수처리",
+              "footprint_cells": { "width": 30, "height": 20 },
+              "footprint_meters": { "width": 150, "height": 100 },
+              "editable": false,
+              "notes": "치수 미확정, 사용자 편집 필요"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
