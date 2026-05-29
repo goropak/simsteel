@@ -6,22 +6,39 @@
 
 ## Now
 
-v0.2.2 진행 예정 — 시설 팔레트 + 배치 인터랙션.
+v0.2.3 준비 중 — Phaser 사전 학습 기반 함정 수정 완료.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
 - facility-presets.json TEFR 기반 초안 완성 (11개 카테고리, 53개 설비)
-- **격자 캔버스 구현 완료** — 브라우저 확인 완료
-  - `src/phaser/GridScene.js` — Phaser Scene (격자, 줌, 팬)
-  - `src/components/GridCanvas.jsx` — React-Phaser 브리지
-  - `src/components/StatusBar.jsx` — 좌표 표시 (m 단위, 셀 번호, 줌 레벨)
-  - `src/App.jsx` — 전체 레이아웃
-- 커서 앵커 줌 (Phaser Tween 방식, roundPixels=false)
+- 격자 캔버스 구현 — 브라우저 확인 완료
+- 커서 앵커 줌 (Phaser Tween 방식)
+
+### ✅ v0.2.2 완료 (2026-05-30)
+- `src/data/facilityCategories.js` — 카테고리 트리 (고로만 활성화)
+- `src/state/facilitiesStore.js` — Zustand 시설 상태 관리
+- `src/phaser/FacilityRenderer.js` — Graphics + Text 풀 기반 렌더링
+- `src/phaser/GridScene.js` — 배치/선택/드래그/삭제/복사 핸들러
+- `src/components/FacilityPalette.jsx` — 좌측 240px 사이드바
+- `src/components/FacilityEditor.jsx` — 우측 280px 편집 패널
+- `src/App.jsx` — 3패널 레이아웃 (팔레트 | 캔버스 | 에디터)
+- `src/components/StatusBar.jsx` — 시설 수 + 선택 이름 추가
+- **Phaser 사전 학습 (회고적, 2026-05-30)**: 함정 4건 확인 + 수정
+  - 줌: Tween → `getWorldPoint + preRender` 5단계 공식
+  - 드래그: 수동 world좌표 → `pointer.worldX/Y` 통일
+  - scrollX/Y 직접 조작 패턴 정리
+
+### Pre-City Education
+- **상태**: 완료 (회고적, 2026-05-30)
+- **방식**: 보좌관 자체 학습 (AI 검색 기반)
+- **도메인**: Phaser 3 Input / Camera
+- **확인된 함정**: #1 dragX/Y 좌표계, #2 마우스 앵커 줌, #3 Container hitArea, #4 팬/드래그 충돌
+- **문서**: `briefing/pre-city-education-protocol.md` (governance 레포)
 
 ## Next
 
-1. **v0.2.2**: 좌측 시설 팔레트 + 시설 사각형 배치 인터랙션
-2. v0.2.x: facility-presets.json footprint_cells 정밀화
+1. v0.2.3: 시설 30종 일괄 활성화 + 회전·복제 + 충돌 검사
+2. `npm install && npm run dev` → 브라우저에서 v0.2.2/2.3 검증
 
 ## Backlog
 
