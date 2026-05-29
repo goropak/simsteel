@@ -6,19 +6,22 @@
 
 ## Now
 
-v0.1 — 도시 골격 + references 시스템 완성.
-- 폴더 구조 생성 (references/, data/, src/, public/)
-- **references/ 시스템 활성화 완료**
-  - PDF 6개 (Tier 1: 3개, Tier 2: 2개, Tier 3: 1개) — 총 약 45.5 MB
-  - 메타파일 7개 (보유 6 + 미확보 1)
-- facility-presets.json TEFR 기반 초안 작성 (11개 카테고리, 53개 설비)
-- 코드 미작성. UI 미착수.
+v0.2.2 진행 예정 — 시설 팔레트 + 배치 인터랙션.
+
+### ✅ v0.2.1 완료 (2026-05-29)
+- references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
+- facility-presets.json TEFR 기반 초안 완성 (11개 카테고리, 53개 설비)
+- **격자 캔버스 구현 완료** — 브라우저 확인 완료
+  - `src/phaser/GridScene.js` — Phaser Scene (격자, 줌, 팬)
+  - `src/components/GridCanvas.jsx` — React-Phaser 브리지
+  - `src/components/StatusBar.jsx` — 좌표 표시 (m 단위, 셀 번호, 줌 레벨)
+  - `src/App.jsx` — 전체 레이아웃
+- 커서 앵커 줌 (Phaser Tween 방식, roundPixels=false)
 
 ## Next
 
-1. v0.2 — Phaser.js UI 프로토타입: 5m 격자 렌더링, 시설 배치 인터랙션 구현
-2. v0.2 — React + Phaser.js 프로젝트 초기화 (CRA 또는 Vite)
-3. v0.2 — facility-presets.json footprint_cells 정밀화 (사용자 입력 기반)
+1. **v0.2.2**: 좌측 시설 팔레트 + 시설 사각형 배치 인터랙션
+2. v0.2.x: facility-presets.json footprint_cells 정밀화
 
 ## Backlog
 
