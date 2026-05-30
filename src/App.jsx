@@ -4,6 +4,7 @@ import StatusBar from './components/StatusBar.jsx';
 import FacilityPalette from './components/FacilityPalette.jsx';
 import FacilityEditor from './components/FacilityEditor.jsx';
 import SiteSizePanel from './components/SiteSizePanel.jsx';
+import SaveLoadPanel from './components/SaveLoadPanel.jsx';
 
 export default function App() {
   const [coord, setCoord] = useState({ cellX: 0, cellY: 0, mX: 0, mY: 0 });
@@ -17,7 +18,7 @@ export default function App() {
       {/* 헤더 */}
       <header style={styles.header}>
         <span style={styles.logo}>simsteel</span>
-        <span style={styles.version}>v0.2.3</span>
+        <span style={styles.version}>v0.2.5</span>
         <span style={styles.subtitle}>Steel Plant Layout Visualizer</span>
       </header>
 
@@ -30,10 +31,11 @@ export default function App() {
           onZoomUpdate={handleZoomUpdate}
         />
 
-        {/* 우측: 편집 패널 + 부지 크기 패널 */}
+        {/* 우측: 편집 패널 + 부지 크기 패널 + 저장/불러오기 */}
         <div style={styles.rightCol}>
           <FacilityEditor />
           <SiteSizePanel />
+          <SaveLoadPanel />
         </div>
       </div>
 

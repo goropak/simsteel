@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { GridScene } from '../phaser/GridScene.js';
 import { GRID_CONFIG, GRID_COLORS } from '../phaser/config.js';
+import { setGame } from '../phaser/gameInstance.js';
 
 /**
  * Phaser 캔버스 래퍼 컴포넌트.
@@ -45,6 +46,7 @@ export default function GridCanvas({ onCoordUpdate, onZoomUpdate }) {
     });
 
     gameRef.current = game;
+    setGame(game); // PNG 캡처 접근용 싱글톤 등록
 
     /**
      * 컨테이너 크기/위치가 바뀔 때 Phaser를 동기화한다.
@@ -78,6 +80,7 @@ export default function GridCanvas({ onCoordUpdate, onZoomUpdate }) {
       ro.disconnect();
       game.destroy(true);
       gameRef.current = null;
+      setGame(null);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

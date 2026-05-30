@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.4.1 완료 — 지형 편집(이동·회전) + 라벨 줌 깨짐 수정.
+v0.2.5 완료 — 멀티 레이아웃 저장/불러오기 + PNG 캡처.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -61,6 +61,23 @@ v0.2.4.1 완료 — 지형 편집(이동·회전) + 라벨 줌 깨짐 수정.
   - `_placeFacility`: 커스텀 typeId 조회 추가 (값 복사 배치)
   - R키 핸들러: tryRotateSelected()로 단순화
 - 헌법 0조 보안 체크 ✅ (localStorage 전용, 서버 전송 0줄)
+
+### ✅ v0.2.5 완료 (2026-05-31) — 멀티 레이아웃 저장/불러오기 + PNG 캡처
+
+- `src/phaser/gameInstance.js`: Phaser game 싱글톤 (PNG 접근용)
+- `src/state/layoutStore.js`: `simsteel:layouts` localStorage 관리
+  - `saveLayout(name, facilities, terrain, siteSize)` — JSON 깊은 복사 스냅샷
+  - `deleteLayout(id)` — 삭제
+  - `hasPngWarned()` / `markPngWarned()` — 1회 경고 플래그
+- `src/components/SaveLoadPanel.jsx`:
+  - 저장: 이름 입력 + Enter/버튼
+  - 목록: 최신순 정렬, 열기/삭제 버튼
+  - 불러오기: 미저장 변경 있으면 confirm 다이얼로그
+  - PNG 캡처: canvas.toDataURL() + 첫 다운로드 경고 토스트
+- `src/components/GridCanvas.jsx`: game 생성 후 `setGame(game)` 등록
+- `src/App.jsx`: SaveLoadPanel 추가, 헤더 v0.2.5
+- 보안 ✅: 파일 export/import UI 없음, 서버 전송 0줄, "안전합니다" 단언 없음
+- 헌법 0조 보안 체크 ✅
 
 ### ✅ v0.2.4.1 완료 (2026-05-31) — 지형 편집(이동·회전) + 라벨 줌 깨짐 수정
 
@@ -133,8 +150,8 @@ v0.2.4.1 완료 — 지형 편집(이동·회전) + 라벨 줌 깨짐 수정.
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.4.1 체크리스트)
-2. v0.2.5: localStorage 다중 레이아웃 저장/불러오기 + PNG 캡처 (설계 완료)
+1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.5 체크리스트)
+2. v0.2.6: Vercel 배포
 
 ## Backlog
 
