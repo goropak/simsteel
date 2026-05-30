@@ -179,7 +179,9 @@ export class GridScene extends Phaser.Scene {
       if (state.siteSize !== prevSiteSize) {
         prevSiteSize = state.siteSize;
         this._drawBoundary();
-        this._clampCamera();
+        // 부지 크기 변경(Apply) 시 카메라를 새 부지 중심으로 재정렬
+        // _centerCameraOnSite 내부에서 _clampCamera도 호출됨
+        this._centerCameraOnSite();
       }
       if (this.input && !this._drag.active) {
         this.input.setDefaultCursor(state.paletteSelectedTypeId ? 'crosshair' : 'default');
@@ -189,6 +191,9 @@ export class GridScene extends Phaser.Scene {
     const initSiteCols = init.siteSize.widthM  / GRID_CONFIG.cellSize;
     const initSiteRows = init.siteSize.heightM / GRID_CONFIG.cellSize;
     this._renderer.render(init.facilities, init.selectedIds, cellPx, initSiteCols, initSiteRows);
+
+    // 최초 로드: 부지 중심을 화면 중심으로 (한 프레임 뒤 실행 — 카메라 크기 확정 보장)
+    this.time.delayedCall(0, () => this._centerCameraOnSite());
 
     // ── 마우스 휠 줌 (5단계 공식 — Phaser 함정 #2) ─────────
     // preRender(1) 필수: 없으면 줌 후 좌표 재계산이 틀어짐
@@ -451,6 +456,35 @@ export class GridScene extends Phaser.Scene {
 
     cam.scrollX = Phaser.Math.Clamp(cam.scrollX, minScrollX, Math.max(minScrollX, maxScrollX));
     cam.scrollY = Phaser.Math.Clamp(cam.scrollY, minScrollY, Math.max(minScrollY, maxScrollY));
+  }
+
+  /**
+   * 부지 중심을 뷰포트 중심에 맞춰 카메라를 이동.
+   *
+   * 부지는 월드 (0,0) 기준으로 고정 유지.
+   * 시설 좌표계·Hard Block·clamp 모두 (0,0) 기준이라 변경 불필요.
+   * 이 메서드는 "뷰"만 조정한다.
+   *
+   * 호출 시점:
+   *   1) create() 최초 로드 완료 후
+   *   2) siteSize 변경(Apply) 시 — 부지가 좌상단에서 나타나는 증상 해결
+   */
+  _centerCameraOnSite() {
+    const cam = this.cameras.main;
+    if (!cam) return;
+
+    const { siteSize } = useFacilitiesStore.getState();
+    const { pixelsPerCell, cellSize } = GRID_CONFIG;
+    const cellPx = pixelsPerCell;
+    const siteW = (siteSize.widthM  / cellSize) * cellPx;
+    const siteH = (siteSize.heightM / cellSize) * cellPx;
+
+    // 부지 중심(px)을 뷰포트 중심으로
+    cam.scrollX = siteW / 2 - cam.width  / (2 * cam.zoom);
+    cam.scrollY = siteH / 2 - cam.height / (2 * cam.zoom);
+
+    // 중심 이동 후 bounds clamp 재적용
+    this._clampCamera();
   }
 
   /** 드래그(팬) 시작 */
