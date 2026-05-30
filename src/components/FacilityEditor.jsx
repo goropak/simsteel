@@ -1,4 +1,8 @@
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
+import { useTerrainStore } from '../state/terrainStore.js';
+
+const TERRAIN_NAMES = { river: '강', road: '도로', tree: '나무' };
+const TERRAIN_COLORS_CSS = { river: '#5599cc', road: '#888888', tree: '#44aa44' };
 
 /** 색상 프리셋 5종 */
 const PRESET_COLORS = [
@@ -26,8 +30,48 @@ export default function FacilityEditor() {
   const tryRotateSelected = useFacilitiesStore((s) => s.tryRotateSelected);
   const addCustomFacility = useFacilitiesStore((s) => s.addCustomFacility);
 
-  // ── 플레이스홀더 ─────────────────────────────────────────────────────
+  const terrains            = useTerrainStore((s) => s.terrains);
+  const selectedTerrainId   = useTerrainStore((s) => s.selectedTerrainId);
+  const removeTerrain       = useTerrainStore((s) => s.removeTerrain);
+  const clearTerrainSel     = useTerrainStore((s) => s.clearTerrainSelection);
+
+  // ── 플레이스홀더 or 지형 정보 ───────────────────────────────────────
   if (selectedIds.length === 0) {
+    // 지형이 선택된 경우
+    if (selectedTerrainId) {
+      const t = terrains.find((x) => x.id === selectedTerrainId);
+      if (t) {
+        const colorCss = TERRAIN_COLORS_CSS[t.type] || '#888888';
+        return (
+          <aside style={styles.sidebar}>
+            <div style={styles.header}>지형 정보</div>
+            <div style={styles.scroll}>
+              <Field label="종류">
+                <div style={{ ...styles.readOnly, color: colorCss, fontWeight: 'bold' }}>
+                  {TERRAIN_NAMES[t.type] || t.type}
+                </div>
+              </Field>
+              <Field label="위치 (셀)">
+                <div style={styles.readOnly}>col {t.col}, row {t.row}</div>
+              </Field>
+              <Field label="크기 (셀)">
+                <div style={styles.readOnly}>{t.width} × {t.height}
+                  <span style={styles.readOnlyHint}> = {t.width*5}×{t.height*5}m</span>
+                </div>
+              </Field>
+            </div>
+            <div style={styles.btnRow}>
+              <button style={styles.btnDeselect} onClick={clearTerrainSel}>선택 해제</button>
+              <button style={styles.btnDelete} onClick={() => {
+                if (window.confirm(`이 ${TERRAIN_NAMES[t.type] || '지형'}을(를) 삭제하시겠습니까?`))
+                  removeTerrain(t.id);
+              }}>삭제</button>
+            </div>
+          </aside>
+        );
+      }
+    }
+
     return (
       <aside style={styles.sidebar}>
         <div style={styles.header}>시설 정보</div>
@@ -146,6 +190,25 @@ export default function FacilityEditor() {
             <span style={styles.dimHint}>
               ={fac.size.width * 5}×{fac.size.height * 5}m
             </span>
+          </div>
+        </Field>
+
+        {/* Phase (v0.2.4) */}
+        <Field label="Phase">
+          <div style={styles.row}>
+            {[1, 2, 3].map((p) => (
+              <button
+                key={p}
+                onClick={() => handleChange('phase', p)}
+                style={{
+                  ...styles.phaseBtn,
+                  ...(( fac.phase ?? 1) === p ? styles.phaseBtnActive(p) : {}),
+                }}
+              >
+                P{p}
+              </button>
+            ))}
+            <span style={styles.readOnlyHint}>&nbsp;Phase 뷰: 팔레트 토글</span>
           </div>
         </Field>
 
@@ -377,6 +440,22 @@ const styles = {
     padding: 0,
     background: 'none',
   },
+  phaseBtn: {
+    background: '#1a1a2a',
+    border: '1px solid #3a3a60',
+    borderRadius: '3px',
+    color: '#666688',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '10px',
+    padding: '3px 8px',
+    cursor: 'pointer',
+    marginRight: '4px',
+  },
+  phaseBtnActive: (p) => ({
+    background: p === 1 ? '#1a2a1a' : p === 2 ? '#2a1a0a' : '#1a0a2a',
+    border: `1px solid ${p === 1 ? '#558844' : p === 2 ? '#cc6600' : '#8844cc'}`,
+    color: p === 1 ? '#88cc66' : p === 2 ? '#ffaa44' : '#cc88ff',
+  }),
   btnRow: {
     display: 'flex',
     gap: '8px',

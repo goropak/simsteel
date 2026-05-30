@@ -99,6 +99,10 @@ export const useFacilitiesStore = create((set, get) => ({
   setSiteSize: (widthM, heightM) =>
     set({ siteSize: { widthM: Math.max(100, widthM), heightM: Math.max(100, heightM) } }),
 
+  // ── Phase 뷰 토글 ───────────────────────────────────────────────────
+  phaseViewEnabled: false,
+  togglePhaseView: () => set((s) => ({ phaseViewEnabled: !s.phaseViewEnabled })),
+
   // ── 배치 시설 CRUD ───────────────────────────────────────────────────
   addFacility: (facility) =>
     set((state) => ({ facilities: [...state.facilities, facility] })),

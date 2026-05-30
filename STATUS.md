@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.3.5 완료 — 사용자 정의 시설 (localStorage) + 회전 편집 UX 개선.
+v0.2.4 완료 — 지형 요소(강·도로·나무) + Phase 색상.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -62,6 +62,27 @@ v0.2.3.5 완료 — 사용자 정의 시설 (localStorage) + 회전 편집 UX �
   - R키 핸들러: tryRotateSelected()로 단순화
 - 헌법 0조 보안 체크 ✅ (localStorage 전용, 서버 전송 0줄)
 
+### ✅ v0.2.4 완료 (2026-05-31) — 지형 요소 + Phase 색상
+
+- `src/phaser/config.js`: `TERRAIN_COLORS` + `PHASE_COLORS` 추가
+- `src/state/terrainStore.js`: 지형 인스턴스 CRUD + localStorage (`simsteel:terrain`)
+- `src/phaser/TerrainRenderer.js`: depth 5 렌더러 (시설 depth 10 아래)
+- `src/phaser/GridScene.js`:
+  - `_terrainRend` + `_terrainUnsub` 추가
+  - 배치 분기: `terrain:` 접두사 → `_placeTerrain()`, 그 외 → `_placeFacility()`
+  - hitTest 우선순위: 시설 > 지형 > 팬
+  - Delete키: 시설 우선, 없으면 선택 지형 삭제
+  - 신규 시설에 `phase: 1` 기본값 추가
+- `src/state/facilitiesStore.js`: `phaseViewEnabled` + `togglePhaseView()`
+- `src/phaser/FacilityRenderer.js`: Phase 오버레이 (P2=주황 틴트, P3=보라 틴트, 우상단 배지)
+- `src/components/FacilityPalette.jsx`:
+  - 헤더: Phase 뷰 ON/OFF 토글 버튼
+  - "지형" 섹션 추가 (강·도로·나무, terrain: 접두사)
+- `src/components/FacilityEditor.jsx`:
+  - Phase P1/P2/P3 버튼 (단일 선택 시)
+  - 지형 선택 시 지형 정보 패널 (종류·위치·크기·삭제)
+- 헌법 0조 보안 체크 ✅ (지형 = localStorage 전용, 서버 전송 0줄)
+
 ### ✅ v0.2.3.7 완료 (2026-05-30) — 카메라 팬 복구 + 부지 중심 생성 (clamp 공식 수정)
 - `src/phaser/GridScene.js`:
   - `_clampCamera()` 공식 재작성 — "최소 가시 영역" 방식 (Phaser 함정 #6)
@@ -95,9 +116,8 @@ v0.2.3.5 완료 — 사용자 정의 시설 (localStorage) + 회전 편집 UX �
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (①~⑧ — v0.2.3.5 체크리스트)
-2. v0.2.4: 강·도로·나무 지형 요소 + Phase별 색상
-4. v0.2.5: 로컬 저장/불러오기 + PNG 캡처
+1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.4 체크리스트)
+2. v0.2.5: 로컬 저장/불러오기 + PNG 캡처
 
 ## Backlog
 

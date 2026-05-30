@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { GRID_CONFIG, GRID_COLORS } from './config.js';
 import { FacilityRenderer } from './FacilityRenderer.js';
+import { TerrainRenderer } from './TerrainRenderer.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
+import { useTerrainStore } from '../state/terrainStore.js';
 
 /**
  * 시설 타입별 배치 기본값
@@ -56,6 +58,16 @@ const FACILITY_DEFAULTS = {
   wastewater:      { width: 10, height: 10, color: '#7a7a8a', baseName: '폐수 처리',   abbrev: 'WWT', confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
 };
 
+/**
+ * 지형 팔레트 기본값 (v0.2.4)
+ * typeId 접두사 'terrain:' — 배치 시 시설과 구분
+ */
+const TERRAIN_DEFAULTS = {
+  'terrain:river': { type: 'river', width: 4,  height: 20 },
+  'terrain:road':  { type: 'road',  width: 2,  height: 30 },
+  'terrain:tree':  { type: 'tree',  width: 3,  height: 3  },
+};
+
 // ── AABB 충돌 검사 헬퍼 ─────────────────────────────────────────────────
 /**
  * 특정 위치·크기가 다른 시설과 겹치는지 검사.
@@ -83,15 +95,17 @@ export class GridScene extends Phaser.Scene {
     this.onCoordUpdate = null;
     this.onZoomUpdate  = null;
 
-    this._drag       = { active: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0 };
-    this._facDrag    = { active: false, id: null, startWX: 0, startWY: 0,
-                         startCol: 0, startRow: 0, lastCol: -1, lastRow: -1 };
-    this._storeUnsub  = null;
-    this._renderer    = null;
-    this._cellPx      = 0;
-    this._boundaryGfx = null;
-    this._outsideGfx  = null;
-    this._siteFillGfx = null;  // 부지 내부 베이지 채우기
+    this._drag          = { active: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0 };
+    this._facDrag       = { active: false, id: null, startWX: 0, startWY: 0,
+                            startCol: 0, startRow: 0, lastCol: -1, lastRow: -1 };
+    this._storeUnsub    = null;
+    this._terrainUnsub  = null;
+    this._renderer      = null;
+    this._terrainRend   = null;
+    this._cellPx        = 0;
+    this._boundaryGfx   = null;
+    this._outsideGfx    = null;
+    this._siteFillGfx   = null;
   }
 
   create() {
@@ -104,25 +118,20 @@ export class GridScene extends Phaser.Scene {
     const cellPx = pixelsPerCell;
     this._cellPx = cellPx;
 
-    const maxCells = 800;  // 최대 4,000m
+    const maxCells = 800;
     const worldW = maxCells * cellPx;
     const worldH = maxCells * cellPx;
 
     this.cameras.main.roundPixels = false;
-    // 카메라 배경 = 부지 외부색 (회녹색 그레이)
-    // 부지 내부 베이지는 _siteFillGfx로 별도 렌더링
     this.cameras.main.setBackgroundColor(GRID_COLORS.outsideBackground);
 
-    // ── 부지 내부 베이지 채우기 (카메라 BG 위, 격자 아래) ────
+    // ── 부지 내부 베이지 (depth 0) ─────────────────────────────
     this._siteFillGfx = this.add.graphics().setDepth(0);
+    this._outsideGfx  = this.add.graphics().setDepth(0);
 
-    // ── 오프-사이트 오버레이 (얇게 유지) ─────────────────────
-    this._outsideGfx = this.add.graphics().setDepth(0);
-
-    // ── 격자선 ───────────────────────────────────────────────
+    // ── 격자선 (depth 1) ──────────────────────────────────────
     const g = this.add.graphics().setDepth(1);
 
-    // 5m 격자 (thin)
     g.lineStyle(1, GRID_COLORS.gridThin, 0.6);
     for (let x = 0; x <= maxCells; x++) {
       if (x % gridMajorEvery === 0) continue;
@@ -134,7 +143,6 @@ export class GridScene extends Phaser.Scene {
     }
     g.strokePath();
 
-    // 50m 격자 (bold)
     g.lineStyle(1, GRID_COLORS.gridBold, 0.9);
     for (let x = 0; x <= maxCells; x += gridMajorEvery) {
       g.moveTo(x * cellPx, 0); g.lineTo(x * cellPx, worldH);
@@ -144,7 +152,7 @@ export class GridScene extends Phaser.Scene {
     }
     g.strokePath();
 
-    // 100m 좌표 라벨
+    // 100m 좌표 라벨 (depth 2)
     for (let x = 0; x <= maxCells; x += gridLabelEvery) {
       const mVal = x * cellSize;
       this.add.text(x * cellPx + 3, 3, `${mVal}m`, {
@@ -160,45 +168,63 @@ export class GridScene extends Phaser.Scene {
       }).setDepth(2).setAlpha(0.7);
     }
 
-    // ── 부지 경계선 ──────────────────────────────────────────
+    // ── 부지 경계선 (depth 3) ─────────────────────────────────
     this._boundaryGfx = this.add.graphics().setDepth(3);
     this._drawBoundary();
 
-    // ── 시설 렌더러 ──────────────────────────────────────────
+    // ── 지형 렌더러 (depth 5) — 시설 아래 ───────────────────
+    this._terrainRend = new TerrainRenderer(this);
+
+    // ── 시설 렌더러 (depth 10) ────────────────────────────────
     this._renderer = new FacilityRenderer(this);
 
-    // ── Zustand 구독 ─────────────────────────────────────────
+    // ── 시설 store 구독 ──────────────────────────────────────
     let prevSiteSize = useFacilitiesStore.getState().siteSize;
     this._storeUnsub = useFacilitiesStore.subscribe((state) => {
       if (this._renderer) {
         const { siteSize } = state;
         const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
         const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
-        this._renderer.render(state.facilities, state.selectedIds, cellPx, siteCols, siteRows);
+        this._renderer.render(
+          state.facilities, state.selectedIds,
+          cellPx, siteCols, siteRows,
+          state.phaseViewEnabled,
+        );
       }
       if (state.siteSize !== prevSiteSize) {
         prevSiteSize = state.siteSize;
         this._drawBoundary();
-        // 부지 크기 변경(Apply) 시 카메라를 새 부지 중심으로 재정렬
-        // _centerCameraOnSite 내부에서 _clampCamera도 호출됨
         this._centerCameraOnSite();
       }
       if (this.input && !this._drag.active) {
         this.input.setDefaultCursor(state.paletteSelectedTypeId ? 'crosshair' : 'default');
       }
     });
+
+    // 지형 store 구독
+    this._terrainUnsub = useTerrainStore.subscribe((state) => {
+      if (this._terrainRend) {
+        this._terrainRend.render(state.terrains, state.selectedTerrainId, cellPx);
+      }
+    });
+
+    // 초기 렌더
     const init = useFacilitiesStore.getState();
     const initSiteCols = init.siteSize.widthM  / GRID_CONFIG.cellSize;
     const initSiteRows = init.siteSize.heightM / GRID_CONFIG.cellSize;
-    this._renderer.render(init.facilities, init.selectedIds, cellPx, initSiteCols, initSiteRows);
+    this._renderer.render(
+      init.facilities, init.selectedIds,
+      cellPx, initSiteCols, initSiteRows,
+      init.phaseViewEnabled,
+    );
 
-    // 최초 로드: 부지 중심을 화면 중심으로.
-    // 주 centering은 GridCanvas.jsx의 setTimeout(150ms) 안에서 syncBounds 직후 호출됨.
-    // 여기서는 500ms 안전 fallback만 유지 (GridCanvas에서 씬을 아직 못 찾는 극단 케이스 대비).
+    const tInit = useTerrainStore.getState();
+    this._terrainRend.render(tInit.terrains, tInit.selectedTerrainId, cellPx);
+
+    // 최초 부지 중심 정렬 (500ms fallback)
     this.time.delayedCall(500, () => this._centerCameraOnSite());
 
-    // ── 마우스 휠 줌 (5단계 공식 — Phaser 함정 #2) ─────────
-    // preRender(1) 필수: 없으면 줌 후 좌표 재계산이 틀어짐
+    // ── 마우스 휠 줌 (Phaser 함정 #2) ────────────────────────
     this.input.on('wheel', (pointer, _obj, _dx, deltaY) => {
       const cam    = this.cameras.main;
       const factor = deltaY > 0 ? 0.80 : 1.25;
@@ -207,14 +233,12 @@ export class GridScene extends Phaser.Scene {
 
       const before = cam.getWorldPoint(pointer.x, pointer.y);
       cam.zoom = toZoom;
-      cam.preRender(1);  // ⭐ 카메라 매트릭스 강제 갱신
+      cam.preRender(1);
       const after = cam.getWorldPoint(pointer.x, pointer.y);
       cam.scrollX -= after.x - before.x;
       cam.scrollY -= after.y - before.y;
 
-      // 6) Clamp: 부지가 항상 화면 안에 일부 이상 보이게 (보정 이후 적용)
       this._clampCamera();
-
       if (this.onZoomUpdate) this.onZoomUpdate(cam.zoom);
     });
 
@@ -224,6 +248,7 @@ export class GridScene extends Phaser.Scene {
       const worldX = pointer.worldX;
       const worldY = pointer.worldY;
       const store  = useFacilitiesStore.getState();
+      const tStore = useTerrainStore.getState();
 
       if (pointer.rightButtonDown()) {
         this._startDrag(pointer, cam);
@@ -231,23 +256,28 @@ export class GridScene extends Phaser.Scene {
       }
       if (!pointer.leftButtonDown()) return;
 
-      // 배치 모드
+      // 배치 모드 — 지형 vs 시설 구분
       if (store.paletteSelectedTypeId) {
-        this._placeFacility(worldX, worldY, cellPx);
+        if (store.paletteSelectedTypeId.startsWith('terrain:')) {
+          this._placeTerrain(worldX, worldY, cellPx, store.paletteSelectedTypeId);
+        } else {
+          this._placeFacility(worldX, worldY, cellPx);
+        }
         return;
       }
 
-      // Cmd/Ctrl+클릭: 다중 선택 토글
       const isMulti = pointer.event.metaKey || pointer.event.ctrlKey;
-      const hitId   = this._renderer.hitTest(worldX, worldY, store.facilities, cellPx);
 
-      if (hitId) {
-        store.selectFacility(hitId, isMulti);
+      // 시설 우선 hitTest
+      const hitFacId = this._renderer.hitTest(worldX, worldY, store.facilities, cellPx);
+      if (hitFacId) {
+        tStore.clearTerrainSelection();
+        store.selectFacility(hitFacId, isMulti);
         if (!isMulti) {
-          const fac = store.facilities.find((f) => f.id === hitId);
+          const fac = store.facilities.find((f) => f.id === hitFacId);
           if (fac) {
             this._facDrag.active   = true;
-            this._facDrag.id       = hitId;
+            this._facDrag.id       = hitFacId;
             this._facDrag.startWX  = worldX;
             this._facDrag.startWY  = worldY;
             this._facDrag.startCol = fac.position.col;
@@ -260,7 +290,19 @@ export class GridScene extends Phaser.Scene {
         return;
       }
 
-      if (!isMulti) store.clearSelection();
+      // 지형 hitTest (시설이 없을 때만)
+      const hitTerrId = this._terrainRend.hitTest(worldX, worldY, tStore.terrains, cellPx);
+      if (hitTerrId) {
+        store.clearSelection();
+        tStore.selectTerrain(hitTerrId);
+        return;
+      }
+
+      // 빈 공간 — 선택 해제 + 팬 시작
+      if (!isMulti) {
+        store.clearSelection();
+        tStore.clearTerrainSelection();
+      }
       this._startDrag(pointer, cam);
     });
 
@@ -275,7 +317,7 @@ export class GridScene extends Phaser.Scene {
     this.input.on('pointermove', (pointer) => {
       const cam = this.cameras.main;
 
-      // 시설 드래그 이동 — pointer.worldX/Y (Phaser 함정 #1)
+      // 시설 드래그 이동 (Phaser 함정 #1: worldX/Y 사용)
       if (this._facDrag.active) {
         const store = useFacilitiesStore.getState();
         const { siteSize } = store;
@@ -290,7 +332,6 @@ export class GridScene extends Phaser.Scene {
         const dCol = Math.round((wX - this._facDrag.startWX) / cellPx);
         const dRow = Math.round((wY - this._facDrag.startWY) / cellPx);
 
-        // Hard Block: 부지 경계 클램프
         const rawCol = this._facDrag.startCol + dCol;
         const rawRow = this._facDrag.startRow + dRow;
         const newCol = Math.max(0, Math.min(rawCol, siteCols - facW));
@@ -327,20 +368,32 @@ export class GridScene extends Phaser.Scene {
       this.input.setDefaultCursor('default');
     });
 
-    // Delete / Backspace: 선택 시설 삭제
+    // Delete / Backspace: 시설 또는 선택 지형 삭제
     const handleDelete = () => {
-      const state = useFacilitiesStore.getState();
-      if (state.selectedIds.length === 0) return;
-      const msg = state.selectedIds.length === 1
-        ? `'${state.facilities.find(f => f.id === state.selectedIds[0])?.name || '시설'}'을(를) 삭제하시겠습니까?`
-        : `선택된 시설 ${state.selectedIds.length}개를 삭제하시겠습니까?`;
-      if (window.confirm(msg)) state.deleteSelected();
+      const state  = useFacilitiesStore.getState();
+      const tState = useTerrainStore.getState();
+
+      // 시설 삭제 우선
+      if (state.selectedIds.length > 0) {
+        const msg = state.selectedIds.length === 1
+          ? `'${state.facilities.find(f => f.id === state.selectedIds[0])?.name || '시설'}'을(를) 삭제하시겠습니까?`
+          : `선택된 시설 ${state.selectedIds.length}개를 삭제하시겠습니까?`;
+        if (window.confirm(msg)) state.deleteSelected();
+        return;
+      }
+      // 지형 삭제
+      if (tState.selectedTerrainId) {
+        const t = tState.terrains.find(x => x.id === tState.selectedTerrainId);
+        const name = { river: '강', road: '도로', tree: '나무' }[t?.type] || '지형';
+        if (window.confirm(`이 ${name}을(를) 삭제하시겠습니까?`)) {
+          tState.removeTerrain(tState.selectedTerrainId);
+        }
+      }
     };
     this.input.keyboard.on('keydown-DELETE',   handleDelete);
     this.input.keyboard.on('keydown-BACKSPACE', handleDelete);
 
-    // R: 선택 시설 90도 회전 (Hard Block: 경계·충돌 시 취소)
-    // tryRotateSelected()가 AABB 사전 검사 + 회전을 한 번에 처리 (store 공유 로직)
+    // R: 선택 시설 90도 회전
     this.input.keyboard.on('keydown-R', () => {
       const state = useFacilitiesStore.getState();
       if (state.selectedIds.length === 0) return;
@@ -359,20 +412,18 @@ export class GridScene extends Phaser.Scene {
 
     // ── Scene 정리 ───────────────────────────────────────────
     this.events.on('destroy', () => {
-      if (this._storeUnsub)  this._storeUnsub();
-      if (this._renderer)    this._renderer.destroy();
-      if (this._boundaryGfx) this._boundaryGfx.destroy();
-      if (this._outsideGfx)  this._outsideGfx.destroy();
-      if (this._siteFillGfx) this._siteFillGfx.destroy();
+      if (this._storeUnsub)   this._storeUnsub();
+      if (this._terrainUnsub) this._terrainUnsub();
+      if (this._renderer)     this._renderer.destroy();
+      if (this._terrainRend)  this._terrainRend.destroy();
+      if (this._boundaryGfx)  this._boundaryGfx.destroy();
+      if (this._outsideGfx)   this._outsideGfx.destroy();
+      if (this._siteFillGfx)  this._siteFillGfx.destroy();
     });
   }
 
   // ── 헬퍼 ─────────────────────────────────────────────────────────────
 
-  /**
-   * 부지 내부 베이지 채우기 + 경계선.
-   * 카메라 배경이 외부색(회녹)이므로 부지 영역만 별도로 채운다.
-   */
   _drawBoundary() {
     const { siteSize } = useFacilitiesStore.getState();
     const { pixelsPerCell, cellSize } = GRID_CONFIG;
@@ -380,17 +431,13 @@ export class GridScene extends Phaser.Scene {
     const siteW = (siteSize.widthM  / cellSize) * cellPx;
     const siteH = (siteSize.heightM / cellSize) * cellPx;
 
-    // 부지 내부 베이지 fill
     const sf = this._siteFillGfx;
     sf.clear();
     sf.fillStyle(GRID_COLORS.background, 1.0);
     sf.fillRect(0, 0, siteW, siteH);
 
-    // 외부 오버레이는 카메라 BG가 이미 다르므로 최소화 (경미한 그림자 효과만)
-    const og = this._outsideGfx;
-    og.clear();
+    this._outsideGfx.clear();
 
-    // 경계선: 어두운 갈색, 2px
     const bg = this._boundaryGfx;
     bg.clear();
     bg.lineStyle(2, GRID_COLORS.boundary, 1.0);
@@ -398,16 +445,8 @@ export class GridScene extends Phaser.Scene {
   }
 
   /**
-   * 카메라 scroll을 부지 + 여유 범위로 clamp.
-   * 목표: 어떤 팬/줌에서도 부지가 항상 화면 안에 일부 이상 보일 것.
-   *
-   * "최소 가시 영역" 방식 (Phaser 함정 #6 참조):
-   *   minScrollX = minVis - vpW  → 뷰포트 오른쪽 끝이 부지 왼쪽 minVis px 안쪽에 걸침
-   *   maxScrollX = siteW - minVis → 뷰포트 왼쪽 끝이 부지 오른쪽 minVis px 안쪽에 걸침
-   * 이 방식은 vpW >> siteW(극한 줌아웃)에서도 범위가 반전되지 않아 팬 잠금 없음.
-   *
-   * 주의: 줌 5단계 공식(함정 #2)의 scroll 보정 이후에 호출해야 함.
-   * 이벤트 핸들러 안에서의 단발성 clamp는 정상 패턴 (update 루프 미결합).
+   * 카메라 scroll clamp — 최소 가시 영역 방식 (Phaser 함정 #6)
+   * vpW >> siteW 줌아웃에서도 범위 반전 없음.
    */
   _clampCamera() {
     const cam = this.cameras.main;
@@ -420,11 +459,9 @@ export class GridScene extends Phaser.Scene {
     const siteW = (siteSize.widthM  / cellSize) * cellPx;
     const siteH = (siteSize.heightM / cellSize) * cellPx;
 
-    // viewport 크기 (현재 줌 반영)
     const vpW = cam.width  / cam.zoom;
     const vpH = cam.height / cam.zoom;
 
-    // 최소 가시 영역: 부지의 최소 15% or 200px 이상 항상 화면 안에
     const minVisX = Math.min(siteW * 0.15, 200);
     const minVisY = Math.min(siteH * 0.15, 200);
 
@@ -438,15 +475,7 @@ export class GridScene extends Phaser.Scene {
   }
 
   /**
-   * 부지 중심을 뷰포트 중심에 맞춰 카메라를 이동.
-   *
-   * 부지는 월드 (0,0) 기준으로 고정 유지 (좌상단 = 월드 원점).
-   * cam.centerOn(cx, cy): 월드 좌표 (cx, cy)를 화면 정중앙으로 이동.
-   * cam.width/height를 직접 계산할 필요 없음 — Phaser 내장이 현재 cam 크기를 알아서 반영.
-   *
-   * 호출 시점:
-   *   1) GridCanvas.jsx syncBounds(150ms) 직후 — cam 크기 확정 보장
-   *   2) siteSize 변경(Apply) 시
+   * 부지 중심을 뷰포트 중심으로 이동 (cam.centerOn 내장 사용).
    */
   _centerCameraOnSite() {
     const cam = this.cameras.main;
@@ -458,10 +487,7 @@ export class GridScene extends Phaser.Scene {
     const siteW = (siteSize.widthM  / cellSize) * cellPx;
     const siteH = (siteSize.heightM / cellSize) * cellPx;
 
-    // 부지 좌상단 = 월드(0,0), 부지 중심 = (siteW/2, siteH/2)
     cam.centerOn(siteW / 2, siteH / 2);
-
-    // 중심 이동 후 bounds clamp 재적용
     this._clampCamera();
   }
 
@@ -476,14 +502,45 @@ export class GridScene extends Phaser.Scene {
   }
 
   /**
-   * 배치 모드: 클릭 셀을 중심으로 시설 배치.
-   * Hard Block: 부지 경계를 벗어나면 클램프.
+   * 지형 배치 (v0.2.4)
+   * 교훈: 타일 게임 좌표 3계 분리 — col/row 정수만 저장.
+   */
+  _placeTerrain(worldX, worldY, cellPx, typeId) {
+    const def = TERRAIN_DEFAULTS[typeId];
+    if (!def) return;
+
+    const store = useFacilitiesStore.getState();
+    const { siteSize } = store;
+    const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+    const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+
+    const clickedCol = Math.floor(worldX / cellPx);
+    const clickedRow = Math.floor(worldY / cellPx);
+
+    const rawCol = clickedCol - Math.floor(def.width  / 2);
+    const rawRow = clickedRow - Math.floor(def.height / 2);
+    const col = Math.max(0, Math.min(rawCol, siteCols - def.width));
+    const row = Math.max(0, Math.min(rawRow, siteRows - def.height));
+
+    const tStore = useTerrainStore.getState();
+    tStore.addTerrain({
+      id:     `${typeId}_${Date.now()}`,
+      type:   def.type,
+      col,
+      row,
+      width:  def.width,
+      height: def.height,
+    });
+  }
+
+  /**
+   * 시설 배치.
+   * 교훈: 타일 게임 좌표 3계 분리 + 커스텀 시설 값 복사 원칙.
    */
   _placeFacility(worldX, worldY, cellPx) {
     const store  = useFacilitiesStore.getState();
     const typeId = store.paletteSelectedTypeId;
 
-    // TEFR 정의 우선 조회, 없으면 커스텀 시설 조회 (교훈: 타일 게임 좌표 3계 분리 — 값 복사)
     const customDef = store.customFacilities.find((f) => f.id === typeId);
     const def = FACILITY_DEFAULTS[typeId] || (customDef ? {
       width:    customDef.width,
@@ -491,7 +548,7 @@ export class GridScene extends Phaser.Scene {
       color:    customDef.color || '#6b9fff',
       baseName: customDef.name,
       abbrev:   customDef.label || customDef.name.slice(0, 3).toUpperCase(),
-      confirmed: false,   // 커스텀 = 미확정 (회색 표시)
+      confirmed: false,
       source:   'user-defined',
     } : {
       width: 10, height: 10, color: '#6b9fff',
@@ -506,7 +563,6 @@ export class GridScene extends Phaser.Scene {
     const clickedCol = Math.floor(worldX / cellPx);
     const clickedRow = Math.floor(worldY / cellPx);
 
-    // 시설 중심을 클릭 지점에 맞춤 + Hard Block 클램프
     const rawCol = clickedCol - Math.floor(def.width  / 2);
     const rawRow = clickedRow - Math.floor(def.height / 2);
     const col = Math.max(0, Math.min(rawCol, siteCols - def.width));
@@ -526,6 +582,7 @@ export class GridScene extends Phaser.Scene {
       color:     def.color,
       capacity:  def.capacity || '',
       notes:     '',
+      phase:     1,   // 기본 Phase 1
     });
   }
 }

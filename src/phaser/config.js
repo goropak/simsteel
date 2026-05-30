@@ -30,3 +30,25 @@ export const GRID_COLORS = {
   boundary:          0x5A3A1A,   // 부지 경계선 (어두운 갈색 — 베이지/회녹 모두 위 가시성)
   boundaryOut:       0xAA8855,   // (미사용 예비 — 외부 오버레이용)
 };
+
+/**
+ * 지형 색상 (v0.2.4)
+ * 강: 파란계열, 도로: 회색, 나무: 초록
+ */
+export const TERRAIN_COLORS = {
+  river: 0x5599cc,
+  road:  0x888888,
+  tree:  0x44aa44,
+};
+
+/**
+ * Phase 색상 오버레이 (v0.2.4)
+ * Phase 1: 오버레이 없음 (기본 시설 색)
+ * Phase 2: 주황 틴트
+ * Phase 3: 보라 틴트
+ */
+export const PHASE_COLORS = {
+  1: null,       // 기본
+  2: 0xff8800,   // 주황
+  3: 0xaa44ff,   // 보라
+};

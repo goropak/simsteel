@@ -1,12 +1,15 @@
 /**
- * Phaser 기반 시설 사각형 렌더러 — v0.2.3
+ * Phaser 기반 시설 사각형 렌더러 — v0.2.4
  *
  * 변경 사항:
  * - 약어(abbrev) 라벨: 시설 중앙, 어두운 갈색 (#3D2E1F), 줌 감응
  * - confirmed: false → 회색 오버레이 + "확인 필요" 표시
  * - 부지 경계 밖 시설 → 빨간 테두리 경고
- * - render() 시그니처: (facilities, selectedIds, cellPx, siteCols, siteRows)
+ * - render() 시그니처: (facilities, selectedIds, cellPx, siteCols, siteRows, phaseViewEnabled)
+ * - Phase 오버레이: phaseViewEnabled=true 시 Phase 2=주황 틴트, Phase 3=보라 틴트
  */
+import { PHASE_COLORS } from './config.js';
+
 export class FacilityRenderer {
   constructor(scene) {
     this.scene = scene;
@@ -23,7 +26,7 @@ export class FacilityRenderer {
    * @param {number}   siteCols    — 부지 최대 열 수 (경계 밖 감지용)
    * @param {number}   siteRows    — 부지 최대 행 수
    */
-  render(facilities, selectedIds, cellPx, siteCols = 9999, siteRows = 9999) {
+  render(facilities, selectedIds, cellPx, siteCols = 9999, siteRows = 9999, phaseViewEnabled = false) {
     const g   = this.graphics;
     const cam = this.scene.cameras.main;
     const zoom = cam ? cam.zoom : 1;
@@ -122,8 +125,17 @@ export class FacilityRenderer {
       );
       nameLabel.setVisible(showName && abbrevBottom + nameLabel.height < y + h);
 
-      // confirmed: false → "확인 필요" 표시 (줌 > 1.0에서)
-      // v0.2.4에서 개선 예정 — 현재는 회색 색상으로 충분히 구분됨
+      // Phase 오버레이 (phaseViewEnabled=true, Phase 2/3만)
+      if (phaseViewEnabled && fac.phase && fac.phase > 1) {
+        const phaseColor = PHASE_COLORS[fac.phase];
+        if (phaseColor != null) {
+          g.fillStyle(phaseColor, 0.28);
+          g.fillRect(x, y, w, h);
+          // Phase 번호 표시 (우상단 작은 배지)
+          g.fillStyle(phaseColor, 0.8);
+          g.fillRect(x + w - 8, y, 8, 8);
+        }
+      }
     });
   }
 
