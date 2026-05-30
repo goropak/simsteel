@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.5 완료 — 멀티 레이아웃 저장/불러오기 + PNG 캡처.
+v0.2.8 완료 — 레이아웃 JSON import + 부지경계 표시 + 카메라 fit.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -61,6 +61,25 @@ v0.2.5 완료 — 멀티 레이아웃 저장/불러오기 + PNG 캡처.
   - `_placeFacility`: 커스텀 typeId 조회 추가 (값 복사 배치)
   - R키 핸들러: tryRotateSelected()로 단순화
 - 헌법 0조 보안 체크 ✅ (localStorage 전용, 서버 전송 0줄)
+
+### ✅ v0.2.8 완료 (2026-05-31) — 레이아웃 JSON import + 부지경계 표시 + 카메라 fit
+
+- `src/state/importStore.js`: `siteBoundary` + `importMeta` 상태 관리
+- `src/phaser/GridScene.js`:
+  - `_importBndGfx` (depth 4) — import 부지경계 박스
+  - `_drawImportBoundary(boundary, cellPx)` — 수동 점선 + 모서리 마커 (청록색)
+  - `_fitToSiteBoundary(boundary)` — zoom = min(vpW/siteW, vpH/siteH)×0.88 후 내장 centerOn
+  - importStore 구독 추가
+- `src/phaser/FacilityRenderer.js`: confidence "낮음" → 내부 주황 테두리
+- `src/components/ImportPanel.jsx`:
+  - 파일 선택 모드 (FileReader, .json 타입 검증)
+  - 텍스트 붙여넣기 모드
+  - JSON 유효성 검사 + 파싱 실패 에러 토스트 (기존 화면 보존)
+  - xPct/yPct → 절대셀 (Math.round 정수 보장, 그리드 스냅)
+  - import 전 미저장 변경 confirm 다이얼로그
+  - 성공 토스트
+- `src/App.jsx`: ImportPanel 추가, 헤더 v0.2.8
+- 보안 ✅: FileReader 브라우저 내 처리, 외부 전송 0, 이미지 AI 인식 미구현
 
 ### ✅ v0.2.5 완료 (2026-05-31) — 멀티 레이아웃 저장/불러오기 + PNG 캡처
 
@@ -150,8 +169,8 @@ v0.2.5 완료 — 멀티 레이아웃 저장/불러오기 + PNG 캡처.
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.5 체크리스트)
-2. v0.2.6: Vercel 배포
+1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.8 체크리스트)
+2. v0.2.8.5: 배경 트레이싱 (이미지 오버레이 + 투명도 조절)
 
 ## Backlog
 

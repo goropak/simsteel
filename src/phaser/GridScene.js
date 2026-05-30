@@ -4,6 +4,7 @@ import { FacilityRenderer } from './FacilityRenderer.js';
 import { TerrainRenderer } from './TerrainRenderer.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 import { useTerrainStore } from '../state/terrainStore.js';
+import { useImportStore } from '../state/importStore.js';
 
 /**
  * 시설 타입별 배치 기본값
@@ -102,12 +103,14 @@ export class GridScene extends Phaser.Scene {
                             startCol: 0, startRow: 0, lastCol: -1, lastRow: -1 };
     this._storeUnsub    = null;
     this._terrainUnsub  = null;
+    this._importUnsub   = null;
     this._renderer      = null;
     this._terrainRend   = null;
     this._cellPx        = 0;
     this._boundaryGfx   = null;
     this._outsideGfx    = null;
     this._siteFillGfx   = null;
+    this._importBndGfx  = null;  // import 부지경계 박스 (depth 4)
   }
 
   create() {
@@ -174,6 +177,9 @@ export class GridScene extends Phaser.Scene {
     this._boundaryGfx = this.add.graphics().setDepth(3);
     this._drawBoundary();
 
+    // ── import 부지경계 박스 (depth 4) ───────────────────────
+    this._importBndGfx = this.add.graphics().setDepth(4);
+
     // ── 지형 렌더러 (depth 5) — 시설 아래 ───────────────────
     this._terrainRend = new TerrainRenderer(this);
 
@@ -208,6 +214,11 @@ export class GridScene extends Phaser.Scene {
       if (this._terrainRend) {
         this._terrainRend.render(state.terrains, state.selectedTerrainId, cellPx);
       }
+    });
+
+    // import store 구독 — 부지경계 박스 갱신
+    this._importUnsub = useImportStore.subscribe((state) => {
+      this._drawImportBoundary(state.siteBoundary, cellPx);
     });
 
     // 초기 렌더
@@ -457,13 +468,15 @@ export class GridScene extends Phaser.Scene {
 
     // ── Scene 정리 ───────────────────────────────────────────
     this.events.on('destroy', () => {
-      if (this._storeUnsub)   this._storeUnsub();
-      if (this._terrainUnsub) this._terrainUnsub();
-      if (this._renderer)     this._renderer.destroy();
-      if (this._terrainRend)  this._terrainRend.destroy();
-      if (this._boundaryGfx)  this._boundaryGfx.destroy();
-      if (this._outsideGfx)   this._outsideGfx.destroy();
-      if (this._siteFillGfx)  this._siteFillGfx.destroy();
+      if (this._storeUnsub)    this._storeUnsub();
+      if (this._terrainUnsub)  this._terrainUnsub();
+      if (this._importUnsub)   this._importUnsub();
+      if (this._renderer)      this._renderer.destroy();
+      if (this._terrainRend)   this._terrainRend.destroy();
+      if (this._boundaryGfx)   this._boundaryGfx.destroy();
+      if (this._outsideGfx)    this._outsideGfx.destroy();
+      if (this._siteFillGfx)   this._siteFillGfx.destroy();
+      if (this._importBndGfx)  this._importBndGfx.destroy();
     });
   }
 
@@ -544,6 +557,86 @@ export class GridScene extends Phaser.Scene {
     this._drag.scrollX = cam.scrollX;
     this._drag.scrollY = cam.scrollY;
     this.input.setDefaultCursor('grabbing');
+  }
+
+  /**
+   * import siteBoundary를 점선 박스로 렌더링 (depth 4).
+   * boundary가 null이면 지운다.
+   * 교훈: 수동 dash 계산 — Phaser Graphics는 setLineDash 미지원, lineBetween으로 구현.
+   */
+  _drawImportBoundary(boundary, cellPx) {
+    const g = this._importBndGfx;
+    if (!g) return;
+    g.clear();
+    if (!boundary) return;
+
+    const x = boundary.offsetXCells * cellPx;
+    const y = boundary.offsetYCells * cellPx;
+    const w = boundary.wCells  * cellPx;
+    const h = boundary.hCells  * cellPx;
+
+    // 반투명 청록색 채우기
+    g.fillStyle(0x00ccaa, 0.06);
+    g.fillRect(x, y, w, h);
+
+    // 수동 점선 테두리 (dashLen=12, gapLen=8)
+    g.lineStyle(2, 0x00ccaa, 0.8);
+    const dash = (x1, y1, x2, y2) => {
+      const dLen = 12, gLen = 8;
+      const dx = x2 - x1, dy = y2 - y1;
+      const total = Math.sqrt(dx * dx + dy * dy);
+      const ux = dx / total, uy = dy / total;
+      let pos = 0, on = true;
+      while (pos < total) {
+        const seg = on ? dLen : gLen;
+        const end = Math.min(pos + seg, total);
+        if (on) {
+          g.lineBetween(x1 + ux * pos, y1 + uy * pos, x1 + ux * end, y1 + uy * end);
+        }
+        pos = end;
+        on = !on;
+      }
+    };
+    dash(x,   y,   x+w, y  );  // 상
+    dash(x+w, y,   x+w, y+h);  // 우
+    dash(x+w, y+h, x,   y+h);  // 하
+    dash(x,   y+h, x,   y  );  // 좌
+
+    // 모서리 마커
+    const mk = 6;
+    g.fillStyle(0x00ccaa, 1.0);
+    [[x,y],[x+w,y],[x+w,y+h],[x,y+h]].forEach(([cx,cy]) => {
+      g.fillRect(cx - mk/2, cy - mk/2, mk, mk);
+    });
+  }
+
+  /**
+   * 카메라를 import 부지경계에 맞게 zoom + centerOn.
+   * 교훈:
+   *   - 내장 centerOn 사용 (수동 scrollX 계산 금지 — 같은 가설 3회 실패 원칙)
+   *   - import 버튼 클릭 시점 = 화면 안정 → cam.width/height 신뢰 가능
+   *
+   * @param {{ wCells, hCells, offsetXCells, offsetYCells }} boundary
+   */
+  _fitToSiteBoundary(boundary) {
+    const cam = this.cameras.main;
+    if (!cam || !boundary) return;
+    const cellPx  = this._cellPx;
+    const siteW   = boundary.wCells  * cellPx;
+    const siteH   = boundary.hCells  * cellPx;
+    const padding = 0.88;  // 12% 여백
+
+    const newZoom = Math.min(
+      cam.width  / siteW,
+      cam.height / siteH,
+    ) * padding;
+
+    cam.zoom = Phaser.Math.Clamp(newZoom, GRID_CONFIG.zoomMin, GRID_CONFIG.zoomMax);
+
+    const centerX = (boundary.offsetXCells + boundary.wCells  / 2) * cellPx;
+    const centerY = (boundary.offsetYCells + boundary.hCells / 2) * cellPx;
+    cam.centerOn(centerX, centerY);  // 내장 API — 타이밍 독립적
+    this._clampCamera();
   }
 
   /**

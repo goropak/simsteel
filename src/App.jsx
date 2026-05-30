@@ -5,6 +5,7 @@ import FacilityPalette from './components/FacilityPalette.jsx';
 import FacilityEditor from './components/FacilityEditor.jsx';
 import SiteSizePanel from './components/SiteSizePanel.jsx';
 import SaveLoadPanel from './components/SaveLoadPanel.jsx';
+import ImportPanel from './components/ImportPanel.jsx';
 
 export default function App() {
   const [coord, setCoord] = useState({ cellX: 0, cellY: 0, mX: 0, mY: 0 });
@@ -18,7 +19,7 @@ export default function App() {
       {/* 헤더 */}
       <header style={styles.header}>
         <span style={styles.logo}>simsteel</span>
-        <span style={styles.version}>v0.2.5</span>
+        <span style={styles.version}>v0.2.8</span>
         <span style={styles.subtitle}>Steel Plant Layout Visualizer</span>
       </header>
 
@@ -36,6 +37,7 @@ export default function App() {
           <FacilityEditor />
           <SiteSizePanel />
           <SaveLoadPanel />
+          <ImportPanel />
         </div>
       </div>
 

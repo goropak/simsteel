@@ -125,6 +125,13 @@ export class FacilityRenderer {
       );
       nameLabel.setVisible(showName && abbrevBottom + nameLabel.height < y + h);
 
+      // confidence 시각화 (import 시설 전용 — v0.2.8)
+      // "낮음" → 내부 주황 테두리로 주의 표시
+      if (fac.confidence === '낮음') {
+        g.lineStyle(1, 0xff9900, 0.9);
+        g.strokeRect(x + 2, y + 2, w - 4, h - 4);
+      }
+
       // Phase 오버레이 (phaseViewEnabled=true, Phase 2/3만)
       if (phaseViewEnabled && fac.phase && fac.phase > 1) {
         const phaseColor = PHASE_COLORS[fac.phase];
