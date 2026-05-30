@@ -3,6 +3,7 @@ import GridCanvas from './components/GridCanvas.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import FacilityPalette from './components/FacilityPalette.jsx';
 import FacilityEditor from './components/FacilityEditor.jsx';
+import SiteSizePanel from './components/SiteSizePanel.jsx';
 
 export default function App() {
   const [coord, setCoord] = useState({ cellX: 0, cellY: 0, mX: 0, mY: 0 });
@@ -29,9 +30,11 @@ export default function App() {
           onZoomUpdate={handleZoomUpdate}
         />
 
-        {/* 우측 편집 패널: 항상 마운트 (조건부 마운트 시 레이아웃 변동 → canvas bounds 틀어짐)
-            선택 없을 때는 FacilityEditor 내부에서 placeholder 표시 */}
-        <FacilityEditor />
+        {/* 우측: 편집 패널 + 부지 크기 패널 */}
+        <div style={styles.rightCol}>
+          <FacilityEditor />
+          <SiteSizePanel />
+        </div>
       </div>
 
       {/* 하단 상태 바 */}
@@ -81,5 +84,13 @@ const styles = {
     flexDirection: 'row',
     overflow: 'hidden',
     minHeight: 0,
+  },
+  rightCol: {
+    width: '280px',
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    borderLeft: '1px solid #2a2a40',
+    overflow: 'hidden',
   },
 };

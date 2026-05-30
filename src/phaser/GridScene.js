@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GRID_CONFIG } from './config.js';
+import { GRID_CONFIG, GRID_COLORS } from './config.js';
 import { FacilityRenderer } from './FacilityRenderer.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 
@@ -25,68 +25,93 @@ export class GridScene extends Phaser.Scene {
     this._drag       = { active: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0 };
     this._facDrag    = { active: false, id: null, startWX: 0, startWY: 0,
                          startCol: 0, startRow: 0, lastCol: -1, lastRow: -1 };
-    this._zoomTween  = null;  // v0.2.2까지 tween 방식 사용, v0.2.3 이후 미사용
-    this._storeUnsub = null;
-    this._renderer   = null;
-    this._cellPx     = 0;
+    this._storeUnsub  = null;
+    this._renderer    = null;
+    this._cellPx      = 0;
+    this._boundaryGfx = null;  // 부지 경계선 그래픽스 (동적 갱신)
   }
 
   create() {
     const {
       cellSize, pixelsPerCell,
       phase1Width, phase1Height,
-      bgColor, gridColor, gridMajorColor,
-      gridMajorEvery,
+      gridMajorEvery, gridLabelEvery,
       zoomMin, zoomMax,
     } = GRID_CONFIG;
 
-    const totalW = phase1Width  * pixelsPerCell;
-    const totalH = phase1Height * pixelsPerCell;
     const cellPx = pixelsPerCell;
     this._cellPx = cellPx;
 
-    this.cameras.main.roundPixels = false;
+    // 캔버스 월드 크기는 넉넉하게 (부지보다 2배 큰 영역 할당)
+    // 실제 부지 경계는 _boundaryGfx로 표시, 크기 변경 시 재그림
+    const maxCells = 800;  // 최대 4,000m
+    const worldW = maxCells * cellPx;
+    const worldH = maxCells * cellPx;
 
-    // ── 배경 ───────────────────────────────────────
-    this.add.rectangle(totalW / 2, totalH / 2, totalW, totalH, bgColor).setDepth(0);
+    this.cameras.main.roundPixels = false;
+    this.cameras.main.setBackgroundColor(GRID_COLORS.background);
+
+    // ── 오프-사이트 오버레이 (부지 외부 어둡게) — 가장 아래
+    this._outsideGfx = this.add.graphics().setDepth(0);
 
     // ── 격자선 ─────────────────────────────────────
     const g = this.add.graphics().setDepth(1);
 
-    g.lineStyle(1, gridColor, 0.8);
-    for (let x = 0; x <= phase1Width; x++) {
+    // 5m 격자 (thin)
+    g.lineStyle(1, GRID_COLORS.gridThin, 0.6);
+    for (let x = 0; x <= maxCells; x++) {
       if (x % gridMajorEvery === 0) continue;
-      const px = x * cellPx;
-      g.moveTo(px, 0); g.lineTo(px, totalH);
+      g.moveTo(x * cellPx, 0); g.lineTo(x * cellPx, worldH);
     }
-    for (let y = 0; y <= phase1Height; y++) {
+    for (let y = 0; y <= maxCells; y++) {
       if (y % gridMajorEvery === 0) continue;
-      const py = y * cellPx;
-      g.moveTo(0, py); g.lineTo(totalW, py);
+      g.moveTo(0, y * cellPx); g.lineTo(worldW, y * cellPx);
     }
     g.strokePath();
 
-    g.lineStyle(1, gridMajorColor, 1);
-    for (let x = 0; x <= phase1Width; x += gridMajorEvery) {
-      const px = x * cellPx;
-      g.moveTo(px, 0); g.lineTo(px, totalH);
+    // 50m 격자 (bold)
+    g.lineStyle(1, GRID_COLORS.gridBold, 0.9);
+    for (let x = 0; x <= maxCells; x += gridMajorEvery) {
+      g.moveTo(x * cellPx, 0); g.lineTo(x * cellPx, worldH);
     }
-    for (let y = 0; y <= phase1Height; y += gridMajorEvery) {
-      const py = y * cellPx;
-      g.moveTo(0, py); g.lineTo(totalW, py);
+    for (let y = 0; y <= maxCells; y += gridMajorEvery) {
+      g.moveTo(0, y * cellPx); g.lineTo(worldW, y * cellPx);
     }
     g.strokePath();
 
-    // ── 좌표 라벨 제거 (사용자 요청) ───────────────
-    // (이전 버전에서 100m마다 숫자 라벨 표시했으나 가독성 방해)
+    // 100m 좌표 라벨
+    for (let x = 0; x <= maxCells; x += gridLabelEvery) {
+      const mVal = x * cellSize;
+      this.add.text(x * cellPx + 3, 3, `${mVal}m`, {
+        fontSize: '9px', color: GRID_COLORS.labelText,
+        fontFamily: 'Courier New, monospace',
+      }).setDepth(2).setAlpha(0.7);
+    }
+    for (let y = gridLabelEvery; y <= maxCells; y += gridLabelEvery) {
+      const mVal = y * cellSize;
+      this.add.text(3, y * cellPx + 3, `${mVal}m`, {
+        fontSize: '9px', color: GRID_COLORS.labelText,
+        fontFamily: 'Courier New, monospace',
+      }).setDepth(2).setAlpha(0.7);
+    }
+
+    // ── 부지 경계선 (동적 — store의 siteSize 반영) ─
+    this._boundaryGfx = this.add.graphics().setDepth(3);
+    this._drawBoundary();
 
     // ── 시설 렌더러 ─────────────────────────────────
     this._renderer = new FacilityRenderer(this);
 
     // ── Zustand 구독 ────────────────────────────────
+    let prevSiteSize = useFacilitiesStore.getState().siteSize;
     this._storeUnsub = useFacilitiesStore.subscribe((state) => {
       if (this._renderer) {
         this._renderer.render(state.facilities, state.selectedIds, cellPx);
+      }
+      // 부지 크기 변경 시 경계선 재그림
+      if (state.siteSize !== prevSiteSize) {
+        prevSiteSize = state.siteSize;
+        this._drawBoundary();
       }
       if (this.input && !this._drag.active) {
         this.input.setDefaultCursor(state.paletteSelectedTypeId ? 'crosshair' : 'default');
@@ -251,16 +276,44 @@ export class GridScene extends Phaser.Scene {
 
     // ── Scene 정리 ──────────────────────────────────
     this.events.on('destroy', () => {
-      if (this._storeUnsub) this._storeUnsub();
-      if (this._renderer)   this._renderer.destroy();
+      if (this._storeUnsub)  this._storeUnsub();
+      if (this._renderer)    this._renderer.destroy();
+      if (this._boundaryGfx) this._boundaryGfx.destroy();
+      if (this._outsideGfx)  this._outsideGfx.destroy();
     });
   }
 
   // ── 헬퍼 ────────────────────────────────────────────────────────────
 
+  /** 부지 경계선 + 외부 오버레이 그리기 */
+  _drawBoundary() {
+    const { siteSize } = useFacilitiesStore.getState();
+    const { pixelsPerCell, cellSize } = GRID_CONFIG;
+    const cellPx = pixelsPerCell;
+    const siteW = (siteSize.widthM  / cellSize) * cellPx;
+    const siteH = (siteSize.heightM / cellSize) * cellPx;
+    const maxPx = 800 * cellPx;
+
+    // 외부 오버레이: 부지 밖을 어둡게
+    const og = this._outsideGfx;
+    og.clear();
+    og.fillStyle(GRID_COLORS.boundaryOut, 0.35);
+    // 위
+    og.fillRect(0, 0, maxPx, 0);
+    // 오른쪽
+    og.fillRect(siteW, 0, maxPx - siteW, siteH);
+    // 아래
+    og.fillRect(0, siteH, maxPx, maxPx - siteH);
+
+    // 경계선
+    const bg = this._boundaryGfx;
+    bg.clear();
+    bg.lineStyle(3, GRID_COLORS.boundary, 1.0);
+    bg.strokeRect(0, 0, siteW, siteH);
+  }
+
   /** 드래그(팬) 시작 */
   _startDrag(pointer, cam) {
-    if (this._zoomTween) { this._zoomTween.stop(); this._zoomTween = null; }
     this._drag.active  = true;
     this._drag.startX  = pointer.x;
     this._drag.startY  = pointer.y;

@@ -1,14 +1,25 @@
 import { create } from 'zustand';
+import { GRID_CONFIG } from '../phaser/config.js';
 
 /**
- * 배치된 시설 목록 + UI 선택 상태.
+ * 배치된 시설 목록 + UI 선택 상태 + 부지 크기.
  *
  * selectedIds: string[]  — 다중 선택 지원 (Cmd+클릭)
+ * siteSize: { widthM, heightM } — 미터 단위 부지 크기 (동적 변경 가능)
  */
 export const useFacilitiesStore = create((set, get) => ({
   facilities: [],
   selectedIds: [],            // 단일/다중 선택 통합
   paletteSelectedTypeId: null,
+
+  // 부지 크기 (기본: 2,000m × 2,000m — Phase 1 기본값)
+  siteSize: {
+    widthM:  GRID_CONFIG.phase1Width  * GRID_CONFIG.cellSize,
+    heightM: GRID_CONFIG.phase1Height * GRID_CONFIG.cellSize,
+  },
+
+  setSiteSize: (widthM, heightM) =>
+    set({ siteSize: { widthM: Math.max(100, widthM), heightM: Math.max(100, heightM) } }),
 
   // ── CRUD ────────────────────────────────────────────────────────────
   addFacility: (facility) =>

@@ -210,13 +210,13 @@ const fieldStyles = {
 
 const styles = {
   sidebar: {
-    width: '280px',
-    flexShrink: 0,
+    flex: 1,
     background: '#12121c',
-    borderLeft: '1px solid #2a2a40',
     display: 'flex',
     flexDirection: 'column',
     fontFamily: 'Courier New, monospace',
+    overflow: 'hidden',
+    minHeight: 0,
   },
   header: {
     height: '36px',

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "jsw_utkal_phase1",
+    "label": "JSW Utkal Phase 1",
+    "widthM": 2250,
+    "heightM": 2250,
+    "source": "JSW Utkal TEFR, M.N. Dastur & Company, 2021",
+    "note": "Phase 1 부지 (공개 자료)"
+  },
+  {
+    "id": "jsw_utkal_full",
+    "label": "JSW Utkal 전체",
+    "widthM": 3000,
+    "heightM": 3000,
+    "source": "JSW Utkal TEFR, M.N. Dastur & Company, 2021",
+    "note": "전체 마스터플랜 부지 (공개 자료)"
+  },
+  {
+    "id": "small_ref",
+    "label": "소형 참고 (1,500m)",
+    "widthM": 1500,
+    "heightM": 1500,
+    "source": "simsteel 참고 프리셋",
+    "note": "소규모 제철소 참고값"
+  },
+  {
+    "id": "medium_ref",
+    "label": "중형 참고 (2,000m) — 기본값",
+    "widthM": 2000,
+    "heightM": 2000,
+    "source": "simsteel 기본값",
+    "note": "Phase 1 기본 설정"
+  },
+  {
+    "id": "large_ref",
+    "label": "대형 참고 (3,000m)",
+    "widthM": 3000,
+    "heightM": 3000,
+    "source": "simsteel 참고 프리셋",
+    "note": "대규모 제철소 참고값"
+  },
+  {
+    "id": "custom",
+    "label": "커스텀",
+    "widthM": null,
+    "heightM": null,
+    "source": "",
+    "note": "직접 입력"
+  }
+]

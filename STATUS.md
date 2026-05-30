@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.3 준비 중 — Phaser 사전 학습 기반 함정 수정 완료.
+v0.2.3 준비 중 — v0.2.2.5 베이지 색감 + 부지 크기 패널 완료.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -35,10 +35,20 @@ v0.2.3 준비 중 — Phaser 사전 학습 기반 함정 수정 완료.
 - **확인된 함정**: #1 dragX/Y 좌표계, #2 마우스 앵커 줌, #3 Container hitArea, #4 팬/드래그 충돌
 - **문서**: `briefing/pre-city-education-protocol.md` (governance 레포)
 
+### ✅ v0.2.2.5 완료 (2026-05-30) — 베이지 색감 + 부지 크기 패널
+- `src/phaser/config.js`: `GRID_COLORS` 팔레트 (베이지 배경/격자/경계)
+- `src/phaser/GridScene.js`: 베이지 배경, 5m/50m thin/bold 격자, 100m 좌표 라벨, 부지 경계선
+- `src/components/StatusBar.jsx`: 면적(m²/km²/평) 표시
+- `src/data/sitePresets.json`: 공개 자료 프리셋 (JSW Utkal TEFR 2021 포함)
+- `src/components/SiteSizePanel.jsx`: 부지 크기 조정 패널 (프리셋 + 커스텀)
+- `src/state/facilitiesStore.js`: `siteSize` 상태 추가
+- `src/App.jsx`: rightCol 레이아웃 (FacilityEditor + SiteSizePanel)
+- 헌법 0조 보안 체크 ✅
+
 ## Next
 
-1. v0.2.3: 시설 30종 일괄 활성화 + 회전·복제 + 충돌 검사
-2. `npm install && npm run dev` → 브라우저에서 v0.2.2/2.3 검증
+1. `npm install && npm run dev` → 브라우저 검증 (베이지 배경 + 면적 표시 + SiteSizePanel)
+2. v0.2.3: 시설 30종 일괄 활성화 + 충돌 검사
 
 ## Backlog
 
