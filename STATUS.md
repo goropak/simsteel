@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.3 준비 중 — v0.2.2.5 베이지 색감 + 부지 크기 패널 완료.
+v0.2.3 완료 — 시설 30종 일괄 활성화 + R키 회전 + Cmd+D 복제 + 약어 라벨 + Hard Block.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -22,11 +22,9 @@ v0.2.3 준비 중 — v0.2.2.5 베이지 색감 + 부지 크기 패널 완료.
 - `src/components/FacilityPalette.jsx` — 좌측 240px 사이드바
 - `src/components/FacilityEditor.jsx` — 우측 280px 편집 패널
 - `src/App.jsx` — 3패널 레이아웃 (팔레트 | 캔버스 | 에디터)
-- `src/components/StatusBar.jsx` — 시설 수 + 선택 이름 추가
 - **Phaser 사전 학습 (회고적, 2026-05-30)**: 함정 4건 확인 + 수정
   - 줌: Tween → `getWorldPoint + preRender` 5단계 공식
   - 드래그: 수동 world좌표 → `pointer.worldX/Y` 통일
-  - scrollX/Y 직접 조작 패턴 정리
 
 ### Pre-City Education
 - **상태**: 완료 (회고적, 2026-05-30)
@@ -36,25 +34,37 @@ v0.2.3 준비 중 — v0.2.2.5 베이지 색감 + 부지 크기 패널 완료.
 - **문서**: `briefing/pre-city-education-protocol.md` (governance 레포)
 
 ### ✅ v0.2.2.5 완료 (2026-05-30) — 베이지 색감 + 부지 크기 패널
-- `src/phaser/config.js`: `GRID_COLORS` 팔레트 (베이지 배경/격자/경계)
-- `src/phaser/GridScene.js`: 베이지 배경, 5m/50m thin/bold 격자, 100m 좌표 라벨, 부지 경계선
+- `src/phaser/config.js`: `GRID_COLORS` 팔레트
+- `src/phaser/GridScene.js`: 베이지 배경, thin/bold 격자, 100m 라벨, 부지 경계선
 - `src/components/StatusBar.jsx`: 면적(m²/km²/평) 표시
 - `src/data/sitePresets.json`: 공개 자료 프리셋 (JSW Utkal TEFR 2021 포함)
 - `src/components/SiteSizePanel.jsx`: 부지 크기 조정 패널 (프리셋 + 커스텀)
-- `src/state/facilitiesStore.js`: `siteSize` 상태 추가
-- `src/App.jsx`: rightCol 레이아웃 (FacilityEditor + SiteSizePanel)
 - 헌법 0조 보안 체크 ✅
+
+### ✅ v0.2.3 완료 (2026-05-30) — 시설 30종 + 회전 + 복제 + 라벨 + Hard Block
+
+- **시설 30종 일괄 활성화** (선강 일관 공정 전 영역)
+  - 카테고리 8개: 원료처리(5) / 소결(2) / 코크스(3) / 고로(4) / 제강(5) / 압연(5) / 부대설비(6) / 펠릿(2 비활성)
+  - 각 시설: `abbrev` 약어, `confirmed` footprint 확정 여부, `source` TEFR Dastur 2021
+  - `confirmed: false` → 회색 표시
+- **R키 90도 회전**: AABB width↔height swap, 경계·충돌 시 취소 (Hard Block)
+- **Cmd+D 복제**: +1셀 오프셋, 빈 셀 탐색(최대 20칸), 복제 직후 자동 선택
+- **약어 라벨**: 시설 중앙, 어두운 갈색 #3D2E1F, 줌 0.25 이상 표시
+- **시설명 라벨**: 줌 0.8 이상에서 약어 아래 추가 표시
+- **부지 경계 Hard Block**: 배치·드래그 시 부지 외곽 클램프, 경계 밖 시설 빨간 테두리
+- 헌법 0조 보안 체크 ✅ (TEFR 공개 자료만, 내부 좌표·도면 없음)
 
 ## Next
 
-1. `npm install && npm run dev` → 브라우저 검증 (베이지 배경 + 면적 표시 + SiteSizePanel)
-2. v0.2.3: 시설 30종 일괄 활성화 + 충돌 검사
+1. `npm install && npm run dev` → 브라우저 검증 (30종 팔레트 + 회전 + 복제 + 라벨)
+2. v0.2.4: 강·도로·나무 지형 요소 + Phase별 색상
+3. v0.2.5: 로컬 저장/불러오기 + PNG 캡처
 
 ## Backlog
 
 ### 중기 (v0.3.x) — 비주얼 게임화
 - v0.3.0: 2.5D 아이소메트릭 뷰 전환 (v0.2.6 배포 후 활용도 데이터 보고 결정)
-- v0.3.1: AI 생성 픽셀 아트 스프라이트 (공개 자료 한정, 나노바나나/GPT Image)
+- v0.3.1: AI 생성 픽셀 아트 스프라이트 (공개 자료 한정)
 - v0.3.2: 연기·차량·컨베이어 단순 애니메이션
 
 ### 장기 (v0.4~v0.5) — 데이터 보안 및 협업
@@ -67,4 +77,3 @@ v0.2.3 준비 중 — v0.2.2.5 베이지 색감 + 부지 크기 패널 완료.
 - Layer 2 데이터는 Supabase에만 보관, 외부 AI 전송 절대 금지
 
 **결정 문서**: `governance/decisions/2026-05-30-simsteel-visual-strategy.md`
-

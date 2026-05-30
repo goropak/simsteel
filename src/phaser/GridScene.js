@@ -4,17 +4,78 @@ import { FacilityRenderer } from './FacilityRenderer.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 
 /**
- * 타입별 배치 기본값 (Layer 1 출처: TEFR, M.N. Dastur & Company 2021)
- * v0.2.2: blast_furnace 1종. v0.2.3에서 나머지 추가.
+ * 시설 타입별 배치 기본값
+ * source: TEFR M.N. Dastur & Company 2021 (공개 자료)
+ * confirmed: false → footprint 미확정 (회색 표시, "확인 필요" 라벨)
+ *
+ * 셀 단위 (1셀 = 5m). 예: width:20 = 100m
  */
 const FACILITY_DEFAULTS = {
-  blast_furnace: {
-    width: 20, height: 20,   // 셀 단위 (100m × 100m)
-    color: '#ff6b6b',
-    capacity: '5,350 m³',   // source: TEFR (DASTUR 2021)
-    baseName: '고로',
-  },
+  // ── 원료 처리 ────────────────────────────────────────────────
+  unloader:    { width: 10, height: 60, color: '#7a8c6e', baseName: '하역설비',   abbrev: 'UL',  confirmed: true,  source: 'TEFR Dastur 2021 §3' },
+  iron_yard:   { width: 40, height: 60, color: '#7a8c6e', baseName: '철광석 야드', abbrev: 'IOY', confirmed: true,  source: 'TEFR Dastur 2021 §3' },
+  coal_yard:   { width: 40, height: 60, color: '#7a8c6e', baseName: '석탄 야드',   abbrev: 'CY',  confirmed: true,  source: 'TEFR Dastur 2021 §3' },
+  stacker:     { width: 5,  height: 30, color: '#7a8c6e', baseName: '스태커',      abbrev: 'STK', confirmed: false, source: 'TEFR Dastur 2021 §3 (추정)' },
+  reclaimer:   { width: 5,  height: 30, color: '#7a8c6e', baseName: '리클레이머',  abbrev: 'RCL', confirmed: false, source: 'TEFR Dastur 2021 §3 (추정)' },
+
+  // ── 소결 ──────────────────────────────────────────────────────
+  sinter_machine: { width: 15, height: 20, color: '#c0854a', baseName: '소결기',    abbrev: 'SP', confirmed: true,  source: 'TEFR Dastur 2021 §4' },
+  sinter_cooler:  { width: 10, height: 8,  color: '#c0854a', baseName: '소결 쿨러', abbrev: 'SC', confirmed: false, source: 'TEFR Dastur 2021 §4 (추정)' },
+
+  // ── 코크스 ───────────────────────────────────────────────────
+  coke_oven:  { width: 20, height: 12, color: '#8888bb', baseName: '코크스 오븐', abbrev: 'CO',  confirmed: true,  source: 'TEFR Dastur 2021 §5' },
+  cdq:        { width: 5,  height: 8,  color: '#8888bb', baseName: 'CDQ',         abbrev: 'CDQ', confirmed: false, source: 'TEFR Dastur 2021 §5 (추정)' },
+  coal_tower: { width: 4,  height: 4,  color: '#8888bb', baseName: '석탄 장입탑', abbrev: 'CT',  confirmed: false, source: 'TEFR Dastur 2021 §5 (추정)' },
+
+  // ── 고로 영역 ─────────────────────────────────────────────────
+  blast_furnace:   { width: 20, height: 20, color: '#ff6b6b', capacity: '5,350 m³', baseName: '고로',         abbrev: 'BF', confirmed: true,  source: 'TEFR Dastur 2021 §6' },
+  hot_stove:       { width: 8,  height: 15, color: '#ff6b6b', baseName: '열풍로',        abbrev: 'HS',  confirmed: true,  source: 'TEFR Dastur 2021 §6' },
+  cast_house:      { width: 10, height: 10, color: '#ff6b6b', baseName: '캐스트 하우스', abbrev: 'CH',  confirmed: false, source: 'TEFR Dastur 2021 §6 (추정)' },
+  slag_granulator: { width: 8,  height: 8,  color: '#ff6b6b', baseName: '슬래그 처리',   abbrev: 'SG',  confirmed: false, source: 'TEFR Dastur 2021 §6 (추정)' },
+
+  // ── 제강 ──────────────────────────────────────────────────────
+  bof:         { width: 10, height: 15, color: '#dd6677', baseName: '전로(BOF)',       abbrev: 'BOF', confirmed: true,  source: 'TEFR Dastur 2021 §7' },
+  lf:          { width: 8,  height: 6,  color: '#dd6677', baseName: '레이들 정련로',   abbrev: 'LF',  confirmed: false, source: 'TEFR Dastur 2021 §7 (추정)' },
+  rh:          { width: 8,  height: 8,  color: '#dd6677', baseName: '진공 탈가스(RH)', abbrev: 'RH',  confirmed: false, source: 'TEFR Dastur 2021 §7 (추정)' },
+  cont_caster: { width: 15, height: 30, color: '#dd6677', baseName: '연속주조기',      abbrev: 'CC',  confirmed: true,  source: 'TEFR Dastur 2021 §7' },
+  scrap_yard:  { width: 20, height: 15, color: '#dd6677', baseName: '스크랩 야드',     abbrev: 'SY',  confirmed: false, source: 'TEFR Dastur 2021 §7 (추정)' },
+
+  // ── 압연 ──────────────────────────────────────────────────────
+  hot_strip_mill: { width: 30, height: 200, color: '#5588cc', baseName: '열연 압연기', abbrev: 'HSM', confirmed: true,  source: 'TEFR Dastur 2021 §8' },
+  cold_rolling:   { width: 20, height: 150, color: '#5588cc', baseName: '냉연 압연기', abbrev: 'CRM', confirmed: true,  source: 'TEFR Dastur 2021 §8' },
+  galv_line:      { width: 15, height: 120, color: '#5588cc', baseName: '도금 라인',   abbrev: 'CGL', confirmed: false, source: 'TEFR Dastur 2021 §8 (추정)' },
+  slab_yard:      { width: 20, height: 30,  color: '#5588cc', baseName: '슬라브 야드', abbrev: 'SLB', confirmed: false, source: 'TEFR Dastur 2021 §8 (추정)' },
+  coil_yard:      { width: 20, height: 20,  color: '#5588cc', baseName: '코일 야드',   abbrev: 'CIL', confirmed: false, source: 'TEFR Dastur 2021 §8 (추정)' },
+
+  // ── 부대설비 ──────────────────────────────────────────────────
+  asu:             { width: 10, height: 15, color: '#7a7a8a', baseName: '산소 공장',   abbrev: 'ASU', confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
+  power_plant:     { width: 15, height: 20, color: '#7a7a8a', baseName: '발전소',      abbrev: 'PWR', confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
+  water_treatment: { width: 10, height: 10, color: '#7a7a8a', baseName: '용수 처리',   abbrev: 'WTP', confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
+  turboblower:     { width: 8,  height: 6,  color: '#7a7a8a', baseName: '열풍 송풍기', abbrev: 'TBL', confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
+  gas_holder:      { width: 12, height: 12, color: '#7a7a8a', baseName: '가스 홀더',   abbrev: 'GH',  confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
+  wastewater:      { width: 10, height: 10, color: '#7a7a8a', baseName: '폐수 처리',   abbrev: 'WWT', confirmed: false, source: 'TEFR Dastur 2021 §9 (추정)' },
 };
+
+// ── AABB 충돌 검사 헬퍼 ─────────────────────────────────────────────────
+/**
+ * 특정 위치·크기가 다른 시설과 겹치는지 검사.
+ * excludeIds: 검사 대상에서 제외할 시설 ID 배열 (본인 포함)
+ */
+function checkAABB(facilities, excludeIds, col, row, w, h) {
+  const exSet = new Set(excludeIds);
+  for (const fac of facilities) {
+    if (exSet.has(fac.id)) continue;
+    if (
+      col < fac.position.col + fac.size.width &&
+      col + w > fac.position.col &&
+      row < fac.position.row + fac.size.height &&
+      row + h > fac.position.row
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export class GridScene extends Phaser.Scene {
   constructor() {
@@ -28,13 +89,13 @@ export class GridScene extends Phaser.Scene {
     this._storeUnsub  = null;
     this._renderer    = null;
     this._cellPx      = 0;
-    this._boundaryGfx = null;  // 부지 경계선 그래픽스 (동적 갱신)
+    this._boundaryGfx = null;
+    this._outsideGfx  = null;
   }
 
   create() {
     const {
       cellSize, pixelsPerCell,
-      phase1Width, phase1Height,
       gridMajorEvery, gridLabelEvery,
       zoomMin, zoomMax,
     } = GRID_CONFIG;
@@ -42,8 +103,6 @@ export class GridScene extends Phaser.Scene {
     const cellPx = pixelsPerCell;
     this._cellPx = cellPx;
 
-    // 캔버스 월드 크기는 넉넉하게 (부지보다 2배 큰 영역 할당)
-    // 실제 부지 경계는 _boundaryGfx로 표시, 크기 변경 시 재그림
     const maxCells = 800;  // 최대 4,000m
     const worldW = maxCells * cellPx;
     const worldH = maxCells * cellPx;
@@ -51,10 +110,10 @@ export class GridScene extends Phaser.Scene {
     this.cameras.main.roundPixels = false;
     this.cameras.main.setBackgroundColor(GRID_COLORS.background);
 
-    // ── 오프-사이트 오버레이 (부지 외부 어둡게) — 가장 아래
+    // ── 오프-사이트 오버레이 ──────────────────────────────────
     this._outsideGfx = this.add.graphics().setDepth(0);
 
-    // ── 격자선 ─────────────────────────────────────
+    // ── 격자선 ───────────────────────────────────────────────
     const g = this.add.graphics().setDepth(1);
 
     // 5m 격자 (thin)
@@ -95,20 +154,22 @@ export class GridScene extends Phaser.Scene {
       }).setDepth(2).setAlpha(0.7);
     }
 
-    // ── 부지 경계선 (동적 — store의 siteSize 반영) ─
+    // ── 부지 경계선 ──────────────────────────────────────────
     this._boundaryGfx = this.add.graphics().setDepth(3);
     this._drawBoundary();
 
-    // ── 시설 렌더러 ─────────────────────────────────
+    // ── 시설 렌더러 ──────────────────────────────────────────
     this._renderer = new FacilityRenderer(this);
 
-    // ── Zustand 구독 ────────────────────────────────
+    // ── Zustand 구독 ─────────────────────────────────────────
     let prevSiteSize = useFacilitiesStore.getState().siteSize;
     this._storeUnsub = useFacilitiesStore.subscribe((state) => {
       if (this._renderer) {
-        this._renderer.render(state.facilities, state.selectedIds, cellPx);
+        const { siteSize } = state;
+        const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+        const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+        this._renderer.render(state.facilities, state.selectedIds, cellPx, siteCols, siteRows);
       }
-      // 부지 크기 변경 시 경계선 재그림
       if (state.siteSize !== prevSiteSize) {
         prevSiteSize = state.siteSize;
         this._drawBoundary();
@@ -118,50 +179,39 @@ export class GridScene extends Phaser.Scene {
       }
     });
     const init = useFacilitiesStore.getState();
-    this._renderer.render(init.facilities, init.selectedIds, cellPx);
+    const initSiteCols = init.siteSize.widthM  / GRID_CONFIG.cellSize;
+    const initSiteRows = init.siteSize.heightM / GRID_CONFIG.cellSize;
+    this._renderer.render(init.facilities, init.selectedIds, cellPx, initSiteCols, initSiteRows);
 
-    // ── 마우스 휠 줌 (5단계 공식 — getWorldPoint + preRender 앵커) ─
-    // 출처: Phaser3 공식 예제 패턴 (Phaser 사전 학습 2026-05-30)
-    // preRender(1) 호출이 결정적: 없으면 줌 후 재계산 좌표가 틀어짐
-    // 이벤트 핸들러 안에서 단발성 scrollX/Y 조작은 정상 패턴 (update 루프 미결합)
+    // ── 마우스 휠 줌 (5단계 공식 — Phaser 함정 #2) ─────────
+    // preRender(1) 필수: 없으면 줌 후 좌표 재계산이 틀어짐
     this.input.on('wheel', (pointer, _obj, _dx, deltaY) => {
       const cam    = this.cameras.main;
       const factor = deltaY > 0 ? 0.80 : 1.25;
       const toZoom = Phaser.Math.Clamp(cam.zoom * factor, zoomMin, zoomMax);
       if (toZoom === cam.zoom) return;
 
-      // 1) 줌 전 커서의 월드 좌표
       const before = cam.getWorldPoint(pointer.x, pointer.y);
-
-      // 2) 줌 적용
       cam.zoom = toZoom;
-
-      // 3) ⭐ 카메라 매트릭스 강제 갱신 (4단계 재계산의 전제)
-      cam.preRender(1);
-
-      // 4) 줌 후 같은 스크린 좌표의 월드 좌표 재계산
+      cam.preRender(1);  // ⭐ 카메라 매트릭스 강제 갱신
       const after = cam.getWorldPoint(pointer.x, pointer.y);
-
-      // 5) 차이만큼 scroll 보정 → 커서 아래 월드 좌표 고정
       cam.scrollX -= after.x - before.x;
       cam.scrollY -= after.y - before.y;
 
       if (this.onZoomUpdate) this.onZoomUpdate(cam.zoom);
     });
 
-    // ── 포인터 다운 ─────────────────────────────────
+    // ── 포인터 다운 ──────────────────────────────────────────
     this.input.on('pointerdown', (pointer) => {
       const cam    = this.cameras.main;
       const worldX = pointer.worldX;
       const worldY = pointer.worldY;
       const store  = useFacilitiesStore.getState();
 
-      // 우클릭 → 항상 팬(드래그) 시작
       if (pointer.rightButtonDown()) {
         this._startDrag(pointer, cam);
         return;
       }
-
       if (!pointer.leftButtonDown()) return;
 
       // 배치 모드
@@ -176,7 +226,6 @@ export class GridScene extends Phaser.Scene {
 
       if (hitId) {
         store.selectFacility(hitId, isMulti);
-        // Cmd+클릭은 선택만, 단일 클릭은 선택 + 드래그 준비
         if (!isMulti) {
           const fac = store.facilities.find((f) => f.id === hitId);
           if (fac) {
@@ -194,38 +243,46 @@ export class GridScene extends Phaser.Scene {
         return;
       }
 
-      // 빈 곳 좌클릭: 선택 해제 + 카메라 팬 시작
       if (!isMulti) store.clearSelection();
       this._startDrag(pointer, cam);
     });
 
     this.input.on('pointerup', () => {
-      // 카메라 팬 종료
       this._drag.active = false;
-      // 시설 드래그 종료
       this._facDrag.active = false;
       const paletteTypeId = useFacilitiesStore.getState().paletteSelectedTypeId;
       this.input.setDefaultCursor(paletteTypeId ? 'crosshair' : 'default');
     });
 
-    // ── 포인터 이동: 시설 드래그 이동 / 카메라 팬 / 좌표 ─
+    // ── 포인터 이동 ───────────────────────────────────────────
     this.input.on('pointermove', (pointer) => {
       const cam = this.cameras.main;
 
-      // 시설 드래그 이동 (셀 단위로 스냅)
-      // pointer.worldX/Y 사용: 카메라 변환(zoom/pan) 자동 반영
+      // 시설 드래그 이동 — pointer.worldX/Y (Phaser 함정 #1)
       if (this._facDrag.active) {
+        const store = useFacilitiesStore.getState();
+        const { siteSize } = store;
+        const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+        const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+        const fac = store.facilities.find((f) => f.id === this._facDrag.id);
+        const facW = fac?.size.width  ?? 1;
+        const facH = fac?.size.height ?? 1;
+
         const wX   = pointer.worldX;
         const wY   = pointer.worldY;
         const dCol = Math.round((wX - this._facDrag.startWX) / cellPx);
         const dRow = Math.round((wY - this._facDrag.startWY) / cellPx);
-        const newCol = Math.max(0, this._facDrag.startCol + dCol);
-        const newRow = Math.max(0, this._facDrag.startRow + dRow);
-        // 셀이 바뀔 때만 스토어 업데이트 (과도한 re-render 방지)
+
+        // Hard Block: 부지 경계 클램프
+        const rawCol = this._facDrag.startCol + dCol;
+        const rawRow = this._facDrag.startRow + dRow;
+        const newCol = Math.max(0, Math.min(rawCol, siteCols - facW));
+        const newRow = Math.max(0, Math.min(rawRow, siteRows - facH));
+
         if (newCol !== this._facDrag.lastCol || newRow !== this._facDrag.lastRow) {
           this._facDrag.lastCol = newCol;
           this._facDrag.lastRow = newRow;
-          useFacilitiesStore.getState().updateFacility(this._facDrag.id, {
+          store.updateFacility(this._facDrag.id, {
             position: { col: newCol, row: newRow },
           });
         }
@@ -244,7 +301,7 @@ export class GridScene extends Phaser.Scene {
       }
     });
 
-    // ── 키보드 ──────────────────────────────────────
+    // ── 키보드 ────────────────────────────────────────────────
 
     // ESC: 배치 모드 해제
     this.input.keyboard.on('keydown-ESC', () => {
@@ -261,10 +318,44 @@ export class GridScene extends Phaser.Scene {
         : `선택된 시설 ${state.selectedIds.length}개를 삭제하시겠습니까?`;
       if (window.confirm(msg)) state.deleteSelected();
     };
-    this.input.keyboard.on('keydown-DELETE',    handleDelete);
-    this.input.keyboard.on('keydown-BACKSPACE',  handleDelete);
+    this.input.keyboard.on('keydown-DELETE',   handleDelete);
+    this.input.keyboard.on('keydown-BACKSPACE', handleDelete);
 
-    // Cmd+D / Ctrl+D: 복사
+    // R: 선택 시설 90도 회전 (Hard Block: 경계·충돌 시 취소)
+    this.input.keyboard.on('keydown-R', () => {
+      const state = useFacilitiesStore.getState();
+      if (state.selectedIds.length === 0) return;
+
+      const { siteSize } = state;
+      const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+      const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+
+      // 회전 후 경계·충돌 사전 검사 (AABB — Phaser 함정 #3 교훈: hitArea 좌표계 주의)
+      const canRotate = state.selectedIds.every((id) => {
+        const fac = state.facilities.find((f) => f.id === id);
+        if (!fac) return false;
+        // 90도 회전: width↔height swap
+        const newW = fac.size.height;
+        const newH = fac.size.width;
+        // 부지 경계 체크
+        if (fac.position.col + newW > siteCols) return false;
+        if (fac.position.row + newH > siteRows) return false;
+        // 충돌 체크 (자신 제외)
+        if (checkAABB(state.facilities, state.selectedIds, fac.position.col, fac.position.row, newW, newH)) {
+          return false;
+        }
+        return true;
+      });
+
+      if (!canRotate) {
+        // 취소: 시각 피드백은 v0.2.4에서 개선
+        return;
+      }
+
+      state.rotateSelected();
+    });
+
+    // Cmd+D / Ctrl+D: 복제
     this.input.keyboard.on('keydown-D', (event) => {
       if (!event.metaKey && !event.ctrlKey) return;
       event.preventDefault();
@@ -274,7 +365,7 @@ export class GridScene extends Phaser.Scene {
 
     this.input.setDefaultCursor('default');
 
-    // ── Scene 정리 ──────────────────────────────────
+    // ── Scene 정리 ───────────────────────────────────────────
     this.events.on('destroy', () => {
       if (this._storeUnsub)  this._storeUnsub();
       if (this._renderer)    this._renderer.destroy();
@@ -283,9 +374,9 @@ export class GridScene extends Phaser.Scene {
     });
   }
 
-  // ── 헬퍼 ────────────────────────────────────────────────────────────
+  // ── 헬퍼 ─────────────────────────────────────────────────────────────
 
-  /** 부지 경계선 + 외부 오버레이 그리기 */
+  /** 부지 경계선 + 외부 오버레이 */
   _drawBoundary() {
     const { siteSize } = useFacilitiesStore.getState();
     const { pixelsPerCell, cellSize } = GRID_CONFIG;
@@ -294,18 +385,12 @@ export class GridScene extends Phaser.Scene {
     const siteH = (siteSize.heightM / cellSize) * cellPx;
     const maxPx = 800 * cellPx;
 
-    // 외부 오버레이: 부지 밖을 어둡게
     const og = this._outsideGfx;
     og.clear();
     og.fillStyle(GRID_COLORS.boundaryOut, 0.35);
-    // 위
-    og.fillRect(0, 0, maxPx, 0);
-    // 오른쪽
     og.fillRect(siteW, 0, maxPx - siteW, siteH);
-    // 아래
     og.fillRect(0, siteH, maxPx, maxPx - siteH);
 
-    // 경계선
     const bg = this._boundaryGfx;
     bg.clear();
     bg.lineStyle(3, GRID_COLORS.boundary, 1.0);
@@ -323,34 +408,45 @@ export class GridScene extends Phaser.Scene {
   }
 
   /**
-   * 배치 모드: 커서 위치 중앙에 시설 배치.
-   * 시설의 중심이 클릭한 셀이 되도록 col/row를 오프셋한다.
+   * 배치 모드: 클릭 셀을 중심으로 시설 배치.
+   * Hard Block: 부지 경계를 벗어나면 클램프.
    */
   _placeFacility(worldX, worldY, cellPx) {
     const store  = useFacilitiesStore.getState();
     const typeId = store.paletteSelectedTypeId;
     const def    = FACILITY_DEFAULTS[typeId] || {
-      width: 10, height: 10, color: '#6b9fff', capacity: '', baseName: typeId,
+      width: 10, height: 10, color: '#6b9fff',
+      baseName: typeId, abbrev: typeId.slice(0, 3).toUpperCase(),
+      confirmed: false, source: '미확인',
     };
+
+    const { siteSize } = store;
+    const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+    const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
 
     const clickedCol = Math.floor(worldX / cellPx);
     const clickedRow = Math.floor(worldY / cellPx);
 
-    // 시설 중심을 클릭 지점에 맞춤
-    const col = Math.max(0, clickedCol - Math.floor(def.width  / 2));
-    const row = Math.max(0, clickedRow - Math.floor(def.height / 2));
+    // 시설 중심을 클릭 지점에 맞춤 + Hard Block 클램프
+    const rawCol = clickedCol - Math.floor(def.width  / 2);
+    const rawRow = clickedRow - Math.floor(def.height / 2);
+    const col = Math.max(0, Math.min(rawCol, siteCols - def.width));
+    const row = Math.max(0, Math.min(rawRow, siteRows - def.height));
 
-    const count    = store.facilities.filter((f) => f.typeId === typeId).length;
+    const count = store.facilities.filter((f) => f.typeId === typeId).length;
 
     store.addFacility({
-      id:       `${typeId}_${Date.now()}`,
+      id:        `${typeId}_${Date.now()}`,
       typeId,
-      name:     `${def.baseName} #${count + 1}`,
-      position: { col, row },
-      size:     { width: def.width, height: def.height },
-      color:    def.color,
-      capacity: def.capacity,
-      notes:    '',
+      name:      `${def.baseName} #${count + 1}`,
+      abbrev:    def.abbrev,
+      confirmed: def.confirmed,
+      source:    def.source,
+      position:  { col, row },
+      size:      { width: def.width, height: def.height },
+      color:     def.color,
+      capacity:  def.capacity || '',
+      notes:     '',
     });
   }
 }

@@ -47,23 +47,58 @@ export const useFacilitiesStore = create((set, get) => ({
       selectedIds: [],
     })),
 
-  // 선택된 시설 복사 (+5셀 오프셋)
+  // 선택된 시설 복사 (+1셀 오프셋, 충돌 시 빈 셀 탐색)
   copySelected: () =>
     set((state) => {
+      /**
+       * 빈 위치 탐색: offset +1 부터 시작, 최대 20칸까지 탐색
+       * AABB 충돌 검사로 겹치지 않는 첫 위치 반환
+       */
+      const findFreePosition = (fac, existingFacilities, excludeId) => {
+        const others = existingFacilities.filter((f) => f.id !== excludeId);
+        for (let delta = 1; delta <= 20; delta++) {
+          const col = fac.position.col + delta;
+          const row = fac.position.row + delta;
+          const overlaps = others.some(
+            (o) =>
+              col < o.position.col + o.size.width &&
+              col + fac.size.width > o.position.col &&
+              row < o.position.row + o.size.height &&
+              row + fac.size.height > o.position.row
+          );
+          if (!overlaps) return { col, row };
+        }
+        // 탐색 실패 시 +5 fallback
+        return { col: fac.position.col + 5, row: fac.position.row + 5 };
+      };
+
       const copies = state.selectedIds
         .map((id) => state.facilities.find((f) => f.id === id))
         .filter(Boolean)
-        .map((fac) => ({
-          ...fac,
-          id: `${fac.typeId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          name: fac.name + ' (복사)',
-          position: { col: fac.position.col + 5, row: fac.position.row + 5 },
-        }));
+        .map((fac) => {
+          const pos = findFreePosition(fac, state.facilities, fac.id);
+          return {
+            ...fac,
+            id: `${fac.typeId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: fac.name + ' (복사)',
+            position: pos,
+          };
+        });
       return {
         facilities: [...state.facilities, ...copies],
         selectedIds: copies.map((f) => f.id),
       };
     }),
+
+  // 선택된 시설 90도 회전 (가로/세로 swap)
+  rotateSelected: () =>
+    set((state) => ({
+      facilities: state.facilities.map((f) =>
+        state.selectedIds.includes(f.id)
+          ? { ...f, size: { width: f.size.height, height: f.size.width } }
+          : f
+      ),
+    })),
 
   // ── 선택 ────────────────────────────────────────────────────────────
   /**
