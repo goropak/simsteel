@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.3.7 완료 — _clampCamera() "최소 가시 영역" 공식 수정 (팬 복구) + 부지 중심 생성 검증.
+v0.2.3.5 완료 — 사용자 정의 시설 (localStorage) + 회전 편집 UX 개선.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -43,6 +43,25 @@ v0.2.3.7 완료 — _clampCamera() "최소 가시 영역" 공식 수정 (팬 복
 
 ### ✅ v0.2.3 완료 (2026-05-30) — 시설 30종 + 회전 + 복제 + 라벨 + Hard Block
 
+### ✅ v0.2.3.5 완료 (2026-05-30) — 사용자 정의 시설 + 회전 편집 UX
+
+- `src/state/facilitiesStore.js`:
+  - `customFacilities` 배열 + localStorage 영속 (`simsteel:custom-facilities`)
+  - `addCustomFacility(def)` / `deleteCustomFacility(id)` 액션
+  - `tryRotateSelected()` — AABB 사전 검사 + 회전 통합 (R키 + 버튼 공유)
+- `src/components/FacilityPalette.jsx`:
+  - "사용자 정의" 섹션 — TEFR과 시각 구분 (구분선 + 별도 색상)
+  - "+ 새 시설 만들기" 폼 (이름/가로/세로/약어/색상)
+  - 커스텀 시설 목록 + 삭제 버튼 (인스턴스 유지 안내)
+  - 첫 저장 토스트 1회 ("브라우저에만 저장" 안내)
+- `src/components/FacilityEditor.jsx`:
+  - "↻ 90° 회전" 버튼 (단일/다중 선택 모두) — tryRotateSelected() 호출
+  - TEFR 시설에 "⎘ 커스텀으로 복사" 버튼
+- `src/phaser/GridScene.js`:
+  - `_placeFacility`: 커스텀 typeId 조회 추가 (값 복사 배치)
+  - R키 핸들러: tryRotateSelected()로 단순화
+- 헌법 0조 보안 체크 ✅ (localStorage 전용, 서버 전송 0줄)
+
 ### ✅ v0.2.3.7 완료 (2026-05-30) — 카메라 팬 복구 + 부지 중심 생성 (clamp 공식 수정)
 - `src/phaser/GridScene.js`:
   - `_clampCamera()` 공식 재작성 — "최소 가시 영역" 방식 (Phaser 함정 #6)
@@ -76,9 +95,8 @@ v0.2.3.7 완료 — _clampCamera() "최소 가시 영역" 공식 수정 (팬 복
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (① 부지 중심 생성 ② 팬 자유 이동 ③ 팬해도 부지 안 사라짐 ④ 배경 색 구분 ⑤ 시설 회귀 없음)
-2. v0.2.3.5: 사용자 정의 시설 생성 (localStorage, "사용자 정의" 카테고리, 값 복사 정책)
-3. v0.2.4: 강·도로·나무 지형 요소 + Phase별 색상
+1. `npm run dev` → 브라우저 검증 (①~⑧ — v0.2.3.5 체크리스트)
+2. v0.2.4: 강·도로·나무 지형 요소 + Phase별 색상
 4. v0.2.5: 로컬 저장/불러오기 + PNG 캡처
 
 ## Backlog

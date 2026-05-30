@@ -16,13 +16,15 @@ const PRESET_COLORS = [
  * - selectedIds.length >= 2  : 다중 선택 패널 (삭제/복사)
  */
 export default function FacilityEditor() {
-  const facilities     = useFacilitiesStore((s) => s.facilities);
-  const selectedIds    = useFacilitiesStore((s) => s.selectedIds);
-  const updateFacility = useFacilitiesStore((s) => s.updateFacility);
-  const removeFacility = useFacilitiesStore((s) => s.removeFacility);
-  const deleteSelected = useFacilitiesStore((s) => s.deleteSelected);
-  const copySelected   = useFacilitiesStore((s) => s.copySelected);
-  const clearSelection = useFacilitiesStore((s) => s.clearSelection);
+  const facilities        = useFacilitiesStore((s) => s.facilities);
+  const selectedIds       = useFacilitiesStore((s) => s.selectedIds);
+  const updateFacility    = useFacilitiesStore((s) => s.updateFacility);
+  const removeFacility    = useFacilitiesStore((s) => s.removeFacility);
+  const deleteSelected    = useFacilitiesStore((s) => s.deleteSelected);
+  const copySelected      = useFacilitiesStore((s) => s.copySelected);
+  const clearSelection    = useFacilitiesStore((s) => s.clearSelection);
+  const tryRotateSelected = useFacilitiesStore((s) => s.tryRotateSelected);
+  const addCustomFacility = useFacilitiesStore((s) => s.addCustomFacility);
 
   // ── 플레이스홀더 ─────────────────────────────────────────────────────
   if (selectedIds.length === 0) {
@@ -44,17 +46,19 @@ export default function FacilityEditor() {
         <div style={styles.header}>시설 정보</div>
         <div style={styles.multiPanel}>
           <div style={styles.multiCount}>{selectedIds.length}개 선택됨</div>
-          <div style={styles.multiHint}>Cmd+D: 복사 · Delete: 삭제</div>
+          <div style={styles.multiHint}>Cmd+D: 복사 · Delete: 삭제 · R: 회전</div>
         </div>
         <div style={styles.btnRow}>
-          <button
-            style={styles.btnCopy}
-            onClick={copySelected}
-          >
+          <button style={styles.btnRotate} onClick={() => tryRotateSelected()}>
+            ↻ 회전
+          </button>
+          <button style={styles.btnCopy} onClick={copySelected}>
             복사 (+5셀)
           </button>
+        </div>
+        <div style={{ padding: '0 12px' }}>
           <button
-            style={styles.btnDelete}
+            style={{ ...styles.btnDelete, width: '100%' }}
             onClick={() => {
               if (window.confirm(`선택된 시설 ${selectedIds.length}개를 삭제하시겠습니까?`))
                 deleteSelected();
@@ -63,7 +67,7 @@ export default function FacilityEditor() {
             삭제
           </button>
         </div>
-        <div style={{ padding: '0 12px 8px' }}>
+        <div style={{ padding: '6px 12px 8px' }}>
           <button style={styles.btnDeselect} onClick={clearSelection}>
             선택 해제
           </button>
@@ -76,7 +80,19 @@ export default function FacilityEditor() {
   const fac = facilities.find((f) => f.id === selectedIds[0]);
   if (!fac) return null;
 
+  const isCustom = fac.source === 'user-defined';
   const handleChange = (field, value) => updateFacility(fac.id, { [field]: value });
+
+  const handleCopyToCustom = () => {
+    addCustomFacility({
+      name:   fac.name,
+      width:  fac.size.width,
+      height: fac.size.height,
+      label:  fac.abbrev || '',
+      color:  fac.color,
+    });
+    window.alert(`'${fac.name}'을(를) 사용자 정의 시설로 복사했습니다.\n팔레트 하단 "사용자 정의" 섹션에서 확인하세요.`);
+  };
 
   const handleSizeChange = (axis, raw) => {
     const v = Math.max(1, Math.min(50, parseInt(raw, 10) || 1));
@@ -182,6 +198,30 @@ export default function FacilityEditor() {
       </div>
 
       {/* 하단 버튼 */}
+      {/* 회전 버튼 (R키 동일 로직 — AABB 사전 검사 포함) */}
+      <div style={{ padding: '8px 12px 0', borderTop: '1px solid #2a2a40' }}>
+        <button
+          style={{ ...styles.btnRotate, width: '100%' }}
+          onClick={() => {
+            const ok = tryRotateSelected();
+            if (!ok) window.alert('회전 불가: 부지 경계 또는 다른 시설과 겹칩니다.');
+          }}
+        >
+          ↻ 90° 회전 (R키)
+        </button>
+      </div>
+      {/* TEFR 시설: 커스텀으로 복사 버튼 */}
+      {!isCustom && (
+        <div style={{ padding: '6px 12px 0' }}>
+          <button
+            style={{ ...styles.btnDeselect, width: '100%', fontSize: '10px' }}
+            onClick={handleCopyToCustom}
+            title="이 시설 유형을 사용자 정의 팔레트에 복사합니다"
+          >
+            ⎘ 커스텀으로 복사
+          </button>
+        </div>
+      )}
       <div style={styles.btnRow}>
         <button style={styles.btnDeselect} onClick={clearSelection}>
           선택 해제
@@ -350,6 +390,17 @@ const styles = {
     border: '1px solid #3a3a60',
     borderRadius: '3px',
     color: '#8888bb',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '11px',
+    padding: '6px',
+    cursor: 'pointer',
+  },
+  btnRotate: {
+    flex: 1,
+    background: '#1a1a2a',
+    border: '1px solid #4a4a80',
+    borderRadius: '3px',
+    color: '#aaaaee',
     fontFamily: 'Courier New, monospace',
     fontSize: '11px',
     padding: '6px',

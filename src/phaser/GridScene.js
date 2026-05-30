@@ -340,37 +340,11 @@ export class GridScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-BACKSPACE', handleDelete);
 
     // R: 선택 시설 90도 회전 (Hard Block: 경계·충돌 시 취소)
+    // tryRotateSelected()가 AABB 사전 검사 + 회전을 한 번에 처리 (store 공유 로직)
     this.input.keyboard.on('keydown-R', () => {
       const state = useFacilitiesStore.getState();
       if (state.selectedIds.length === 0) return;
-
-      const { siteSize } = state;
-      const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
-      const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
-
-      // 회전 후 경계·충돌 사전 검사 (AABB — Phaser 함정 #3 교훈: hitArea 좌표계 주의)
-      const canRotate = state.selectedIds.every((id) => {
-        const fac = state.facilities.find((f) => f.id === id);
-        if (!fac) return false;
-        // 90도 회전: width↔height swap
-        const newW = fac.size.height;
-        const newH = fac.size.width;
-        // 부지 경계 체크
-        if (fac.position.col + newW > siteCols) return false;
-        if (fac.position.row + newH > siteRows) return false;
-        // 충돌 체크 (자신 제외)
-        if (checkAABB(state.facilities, state.selectedIds, fac.position.col, fac.position.row, newW, newH)) {
-          return false;
-        }
-        return true;
-      });
-
-      if (!canRotate) {
-        // 취소: 시각 피드백은 v0.2.4에서 개선
-        return;
-      }
-
-      state.rotateSelected();
+      state.tryRotateSelected();
     });
 
     // Cmd+D / Ctrl+D: 복제
@@ -508,11 +482,22 @@ export class GridScene extends Phaser.Scene {
   _placeFacility(worldX, worldY, cellPx) {
     const store  = useFacilitiesStore.getState();
     const typeId = store.paletteSelectedTypeId;
-    const def    = FACILITY_DEFAULTS[typeId] || {
+
+    // TEFR 정의 우선 조회, 없으면 커스텀 시설 조회 (교훈: 타일 게임 좌표 3계 분리 — 값 복사)
+    const customDef = store.customFacilities.find((f) => f.id === typeId);
+    const def = FACILITY_DEFAULTS[typeId] || (customDef ? {
+      width:    customDef.width,
+      height:   customDef.height,
+      color:    customDef.color || '#6b9fff',
+      baseName: customDef.name,
+      abbrev:   customDef.label || customDef.name.slice(0, 3).toUpperCase(),
+      confirmed: false,   // 커스텀 = 미확정 (회색 표시)
+      source:   'user-defined',
+    } : {
       width: 10, height: 10, color: '#6b9fff',
       baseName: typeId, abbrev: typeId.slice(0, 3).toUpperCase(),
       confirmed: false, source: '미확인',
-    };
+    });
 
     const { siteSize } = store;
     const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
