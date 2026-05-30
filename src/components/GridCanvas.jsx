@@ -63,8 +63,16 @@ export default function GridCanvas({ onCoordUpdate, onZoomUpdate }) {
     const ro = new ResizeObserver(syncBounds);
     ro.observe(container);
 
-    // 초기 레이아웃 정착 후 한 번 더 동기화 (flex 레이아웃 안정화 대기)
-    setTimeout(syncBounds, 150);
+    // 초기 레이아웃 정착 후 한 번 더 동기화 + 부지 중심 정렬.
+    // 문제: Phaser Game 생성 시 flex 미계산으로 container.clientWidth/Height = 0 →
+    //       window.innerWidth/innerHeight 기준 cam 크기로 시작함.
+    // 해결: 150ms 뒤 실제 크기로 resize() 직후, 씬의 _centerCameraOnSite를 즉시 호출.
+    //       순서 보장(resize → cam 업데이트 → 올바른 cam.width/height로 centering)이 핵심.
+    setTimeout(() => {
+      syncBounds();
+      const scene = game.scene.getScene('GridScene');
+      if (scene?._centerCameraOnSite) scene._centerCameraOnSite();
+    }, 150);
 
     return () => {
       ro.disconnect();
