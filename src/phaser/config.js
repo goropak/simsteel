@@ -18,13 +18,15 @@ export const GRID_CONFIG = {
 
 /**
  * 베이지 색상 팔레트 (v0.2.2.5 — AutoCAD/SketchUp 도면 느낌)
+ * v0.2.3.6: 부지 내부(베이지)와 외부(회녹색)를 색으로 분리
  * UI 패널(사이드바 헤더 등)은 다크 톤 유지 — 대비를 위해
  */
 export const GRID_COLORS = {
-  background:  0xC9A876,   // 베이지 흙바닥
-  gridThin:    0xA68B5B,   // 5m 격자 (옅은 갈색)
-  gridBold:    0x6B5435,   // 50m 격자 (진한 갈색)
-  labelText:   '#3D2817',  // 100m 좌표 라벨 (거의 검정, Phaser Text용 hex string)
-  boundary:    0xFFFFFF,   // 부지 경계선 (흰색 — 베이지 위 가시성)
-  boundaryOut: 0xAA8855,   // 부지 외부 오버레이 (어두운 베이지)
+  background:        0xC9A876,   // 부지 내부 — 베이지 흙바닥 (격자 배경)
+  outsideBackground: 0xBBBEB8,   // 부지 외부 — 회녹색 그레이 (카메라 배경)
+  gridThin:          0xA68B5B,   // 5m 격자 (옅은 갈색)
+  gridBold:          0x6B5435,   // 50m 격자 (진한 갈색)
+  labelText:         '#3D2817',  // 100m 좌표 라벨 (Phaser Text용 hex string)
+  boundary:          0x5A3A1A,   // 부지 경계선 (어두운 갈색 — 베이지/회녹 모두 위 가시성)
+  boundaryOut:       0xAA8855,   // (미사용 예비 — 외부 오버레이용)
 };

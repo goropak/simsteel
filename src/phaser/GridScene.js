@@ -91,6 +91,7 @@ export class GridScene extends Phaser.Scene {
     this._cellPx      = 0;
     this._boundaryGfx = null;
     this._outsideGfx  = null;
+    this._siteFillGfx = null;  // 부지 내부 베이지 채우기
   }
 
   create() {
@@ -108,9 +109,14 @@ export class GridScene extends Phaser.Scene {
     const worldH = maxCells * cellPx;
 
     this.cameras.main.roundPixels = false;
-    this.cameras.main.setBackgroundColor(GRID_COLORS.background);
+    // 카메라 배경 = 부지 외부색 (회녹색 그레이)
+    // 부지 내부 베이지는 _siteFillGfx로 별도 렌더링
+    this.cameras.main.setBackgroundColor(GRID_COLORS.outsideBackground);
 
-    // ── 오프-사이트 오버레이 ──────────────────────────────────
+    // ── 부지 내부 베이지 채우기 (카메라 BG 위, 격자 아래) ────
+    this._siteFillGfx = this.add.graphics().setDepth(0);
+
+    // ── 오프-사이트 오버레이 (얇게 유지) ─────────────────────
     this._outsideGfx = this.add.graphics().setDepth(0);
 
     // ── 격자선 ───────────────────────────────────────────────
@@ -173,6 +179,7 @@ export class GridScene extends Phaser.Scene {
       if (state.siteSize !== prevSiteSize) {
         prevSiteSize = state.siteSize;
         this._drawBoundary();
+        this._clampCamera();
       }
       if (this.input && !this._drag.active) {
         this.input.setDefaultCursor(state.paletteSelectedTypeId ? 'crosshair' : 'default');
@@ -197,6 +204,9 @@ export class GridScene extends Phaser.Scene {
       const after = cam.getWorldPoint(pointer.x, pointer.y);
       cam.scrollX -= after.x - before.x;
       cam.scrollY -= after.y - before.y;
+
+      // 6) Clamp: 부지가 항상 화면 안에 일부 이상 보이게 (보정 이후 적용)
+      this._clampCamera();
 
       if (this.onZoomUpdate) this.onZoomUpdate(cam.zoom);
     });
@@ -292,6 +302,7 @@ export class GridScene extends Phaser.Scene {
       if (this._drag.active) {
         cam.scrollX = this._drag.scrollX - (pointer.x - this._drag.startX) / cam.zoom;
         cam.scrollY = this._drag.scrollY - (pointer.y - this._drag.startY) / cam.zoom;
+        this._clampCamera();
       }
 
       const cx = Math.max(0, Math.floor(pointer.worldX / cellPx));
@@ -371,30 +382,75 @@ export class GridScene extends Phaser.Scene {
       if (this._renderer)    this._renderer.destroy();
       if (this._boundaryGfx) this._boundaryGfx.destroy();
       if (this._outsideGfx)  this._outsideGfx.destroy();
+      if (this._siteFillGfx) this._siteFillGfx.destroy();
     });
   }
 
   // ── 헬퍼 ─────────────────────────────────────────────────────────────
 
-  /** 부지 경계선 + 외부 오버레이 */
+  /**
+   * 부지 내부 베이지 채우기 + 경계선.
+   * 카메라 배경이 외부색(회녹)이므로 부지 영역만 별도로 채운다.
+   */
   _drawBoundary() {
     const { siteSize } = useFacilitiesStore.getState();
     const { pixelsPerCell, cellSize } = GRID_CONFIG;
     const cellPx = pixelsPerCell;
     const siteW = (siteSize.widthM  / cellSize) * cellPx;
     const siteH = (siteSize.heightM / cellSize) * cellPx;
-    const maxPx = 800 * cellPx;
 
+    // 부지 내부 베이지 fill
+    const sf = this._siteFillGfx;
+    sf.clear();
+    sf.fillStyle(GRID_COLORS.background, 1.0);
+    sf.fillRect(0, 0, siteW, siteH);
+
+    // 외부 오버레이는 카메라 BG가 이미 다르므로 최소화 (경미한 그림자 효과만)
     const og = this._outsideGfx;
     og.clear();
-    og.fillStyle(GRID_COLORS.boundaryOut, 0.35);
-    og.fillRect(siteW, 0, maxPx - siteW, siteH);
-    og.fillRect(0, siteH, maxPx, maxPx - siteH);
 
+    // 경계선: 어두운 갈색, 2px
     const bg = this._boundaryGfx;
     bg.clear();
-    bg.lineStyle(3, GRID_COLORS.boundary, 1.0);
+    bg.lineStyle(2, GRID_COLORS.boundary, 1.0);
     bg.strokeRect(0, 0, siteW, siteH);
+  }
+
+  /**
+   * 카메라 scroll을 부지 + 여유 마진 범위로 clamp.
+   * 목표: 어떤 팬/줌에서도 부지가 항상 화면 안에 일부 이상 보일 것.
+   *
+   * Phaser 함정 #2 주의: 줌 5단계 공식의 scroll 보정 이후에 호출해야 함.
+   * 이벤트 핸들러 안에서의 단발성 clamp는 정상 패턴 (update 루프 미결합).
+   */
+  _clampCamera() {
+    const cam = this.cameras.main;
+    if (!cam) return;
+
+    const { siteSize } = useFacilitiesStore.getState();
+    const { pixelsPerCell, cellSize } = GRID_CONFIG;
+    const cellPx = pixelsPerCell;
+
+    const siteW = (siteSize.widthM  / cellSize) * cellPx;
+    const siteH = (siteSize.heightM / cellSize) * cellPx;
+
+    // 여유 마진: 부지 폭의 50% — 줌 아웃해도 부지가 완전히 사라지지 않게
+    const marginX = siteW * 0.5;
+    const marginY = siteH * 0.5;
+
+    // viewport 크기 (현재 줌 반영)
+    const vpW = cam.width  / cam.zoom;
+    const vpH = cam.height / cam.zoom;
+
+    // scrollX: 왼쪽 끝이 (siteW + marginX) 너머로 가지 않게
+    //          오른쪽 끝이 (-marginX) 아래로 가지 않게
+    const minScrollX = -marginX;
+    const maxScrollX = siteW - vpW + marginX;
+    const minScrollY = -marginY;
+    const maxScrollY = siteH - vpH + marginY;
+
+    cam.scrollX = Phaser.Math.Clamp(cam.scrollX, minScrollX, Math.max(minScrollX, maxScrollX));
+    cam.scrollY = Phaser.Math.Clamp(cam.scrollY, minScrollY, Math.max(minScrollY, maxScrollY));
   }
 
   /** 드래그(팬) 시작 */
