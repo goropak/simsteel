@@ -422,10 +422,15 @@ export class GridScene extends Phaser.Scene {
   }
 
   /**
-   * 카메라 scroll을 부지 + 여유 마진 범위로 clamp.
+   * 카메라 scroll을 부지 + 여유 범위로 clamp.
    * 목표: 어떤 팬/줌에서도 부지가 항상 화면 안에 일부 이상 보일 것.
    *
-   * Phaser 함정 #2 주의: 줌 5단계 공식의 scroll 보정 이후에 호출해야 함.
+   * "최소 가시 영역" 방식 (Phaser 함정 #6 참조):
+   *   minScrollX = minVis - vpW  → 뷰포트 오른쪽 끝이 부지 왼쪽 minVis px 안쪽에 걸침
+   *   maxScrollX = siteW - minVis → 뷰포트 왼쪽 끝이 부지 오른쪽 minVis px 안쪽에 걸침
+   * 이 방식은 vpW >> siteW(극한 줌아웃)에서도 범위가 반전되지 않아 팬 잠금 없음.
+   *
+   * 주의: 줌 5단계 공식(함정 #2)의 scroll 보정 이후에 호출해야 함.
    * 이벤트 핸들러 안에서의 단발성 clamp는 정상 패턴 (update 루프 미결합).
    */
   _clampCamera() {
@@ -439,20 +444,18 @@ export class GridScene extends Phaser.Scene {
     const siteW = (siteSize.widthM  / cellSize) * cellPx;
     const siteH = (siteSize.heightM / cellSize) * cellPx;
 
-    // 여유 마진: 부지 폭의 50% — 줌 아웃해도 부지가 완전히 사라지지 않게
-    const marginX = siteW * 0.5;
-    const marginY = siteH * 0.5;
-
     // viewport 크기 (현재 줌 반영)
     const vpW = cam.width  / cam.zoom;
     const vpH = cam.height / cam.zoom;
 
-    // scrollX: 왼쪽 끝이 (siteW + marginX) 너머로 가지 않게
-    //          오른쪽 끝이 (-marginX) 아래로 가지 않게
-    const minScrollX = -marginX;
-    const maxScrollX = siteW - vpW + marginX;
-    const minScrollY = -marginY;
-    const maxScrollY = siteH - vpH + marginY;
+    // 최소 가시 영역: 부지의 최소 15% or 200px 이상 항상 화면 안에
+    const minVisX = Math.min(siteW * 0.15, 200);
+    const minVisY = Math.min(siteH * 0.15, 200);
+
+    const minScrollX = minVisX - vpW;
+    const maxScrollX = siteW - minVisX;
+    const minScrollY = minVisY - vpH;
+    const maxScrollY = siteH - minVisY;
 
     cam.scrollX = Phaser.Math.Clamp(cam.scrollX, minScrollX, Math.max(minScrollX, maxScrollX));
     cam.scrollY = Phaser.Math.Clamp(cam.scrollY, minScrollY, Math.max(minScrollY, maxScrollY));
