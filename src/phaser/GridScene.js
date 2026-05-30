@@ -466,13 +466,13 @@ export class GridScene extends Phaser.Scene {
   /**
    * 부지 중심을 뷰포트 중심에 맞춰 카메라를 이동.
    *
-   * 부지는 월드 (0,0) 기준으로 고정 유지.
-   * 시설 좌표계·Hard Block·clamp 모두 (0,0) 기준이라 변경 불필요.
-   * 이 메서드는 "뷰"만 조정한다.
+   * 부지는 월드 (0,0) 기준으로 고정 유지 (좌상단 = 월드 원점).
+   * cam.centerOn(cx, cy): 월드 좌표 (cx, cy)를 화면 정중앙으로 이동.
+   * cam.width/height를 직접 계산할 필요 없음 — Phaser 내장이 현재 cam 크기를 알아서 반영.
    *
    * 호출 시점:
-   *   1) create() 최초 로드 완료 후
-   *   2) siteSize 변경(Apply) 시 — 부지가 좌상단에서 나타나는 증상 해결
+   *   1) GridCanvas.jsx syncBounds(150ms) 직후 — cam 크기 확정 보장
+   *   2) siteSize 변경(Apply) 시
    */
   _centerCameraOnSite() {
     const cam = this.cameras.main;
@@ -484,9 +484,8 @@ export class GridScene extends Phaser.Scene {
     const siteW = (siteSize.widthM  / cellSize) * cellPx;
     const siteH = (siteSize.heightM / cellSize) * cellPx;
 
-    // 부지 중심(px)을 뷰포트 중심으로
-    cam.scrollX = siteW / 2 - cam.width  / (2 * cam.zoom);
-    cam.scrollY = siteH / 2 - cam.height / (2 * cam.zoom);
+    // 부지 좌상단 = 월드(0,0), 부지 중심 = (siteW/2, siteH/2)
+    cam.centerOn(siteW / 2, siteH / 2);
 
     // 중심 이동 후 bounds clamp 재적용
     this._clampCamera();
