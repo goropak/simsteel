@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { GridScene } from '../phaser/GridScene.js';
-import { GRID_CONFIG } from '../phaser/config.js';
+import { GRID_CONFIG, GRID_COLORS } from '../phaser/config.js';
 
 /**
  * Phaser 캔버스 래퍼 컴포넌트.
@@ -26,8 +26,7 @@ export default function GridCanvas({ onCoordUpdate, onZoomUpdate }) {
     scene.onCoordUpdate = onCoordUpdate;
     scene.onZoomUpdate  = onZoomUpdate;
 
-    const { bgColor } = GRID_CONFIG;
-    const bgHex = '#' + bgColor.toString(16).padStart(6, '0');
+    const bgHex = '#' + GRID_COLORS.background.toString(16).padStart(6, '0');
 
     const game = new Phaser.Game({
       type: Phaser.AUTO,

@@ -94,9 +94,26 @@ export default function SiteSizePanel() {
           />
         </div>
 
-        {/* 현재 적용 값 표시 */}
-        <div style={styles.currentVal}>
-          현재: {siteSize.widthM.toLocaleString()} × {siteSize.heightM.toLocaleString()}m
+        {/* 면적 계산 표시 */}
+        <div style={styles.areaBox}>
+          <div style={styles.areaRow}>
+            <span style={styles.areaLabel}>면적</span>
+            <span style={styles.areaVal}>
+              {(siteSize.widthM * siteSize.heightM).toLocaleString()} m²
+            </span>
+          </div>
+          <div style={styles.areaRow}>
+            <span style={styles.areaLabel}>km²</span>
+            <span style={styles.areaVal}>
+              {(siteSize.widthM * siteSize.heightM / 1_000_000).toFixed(2)} km²
+            </span>
+          </div>
+          <div style={styles.areaRow}>
+            <span style={styles.areaLabel}>평</span>
+            <span style={{ ...styles.areaVal, color: '#aaaadd' }}>
+              {Math.round(siteSize.widthM * siteSize.heightM / 3.3058).toLocaleString()} 평
+            </span>
+          </div>
         </div>
 
         {/* 적용 버튼 */}
@@ -170,10 +187,30 @@ const styles = {
     fontStyle: 'italic',
     paddingLeft: '2px',
   },
-  currentVal: {
-    fontSize: '10px',
-    color: '#666699',
+  areaBox: {
+    background: '#0e0e18',
+    border: '1px solid #2a2a40',
+    borderRadius: '3px',
+    padding: '6px 8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '3px',
     marginTop: '2px',
+  },
+  areaRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  areaLabel: {
+    fontSize: '9px',
+    color: '#5555aa',
+    width: '28px',
+  },
+  areaVal: {
+    fontSize: '11px',
+    color: '#8888bb',
+    fontVariantNumeric: 'tabular-nums',
   },
   btnApply: {
     width: '100%',
