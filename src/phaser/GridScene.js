@@ -192,8 +192,11 @@ export class GridScene extends Phaser.Scene {
     const initSiteRows = init.siteSize.heightM / GRID_CONFIG.cellSize;
     this._renderer.render(init.facilities, init.selectedIds, cellPx, initSiteCols, initSiteRows);
 
-    // 최초 로드: 부지 중심을 화면 중심으로 (한 프레임 뒤 실행 — 카메라 크기 확정 보장)
-    this.time.delayedCall(0, () => this._centerCameraOnSite());
+    // 최초 로드: 부지 중심을 화면 중심으로.
+    // GridCanvas.jsx가 setTimeout(syncBounds, 150) 으로 150ms 뒤에 실제 캔버스 크기를 확정하므로,
+    // 200ms 뒤에 실행해야 cam.width/height가 올바른 값(사이드바 제외 실제 크기)을 갖는다.
+    // delayedCall(0)은 flex 레이아웃 미계산 시 window.innerWidth 기준으로 계산되어 오프셋 발생.
+    this.time.delayedCall(200, () => this._centerCameraOnSite());
 
     // ── 마우스 휠 줌 (5단계 공식 — Phaser 함정 #2) ─────────
     // preRender(1) 필수: 없으면 줌 후 좌표 재계산이 틀어짐
