@@ -34,6 +34,7 @@ export default function FacilityEditor() {
   const selectedTerrainId   = useTerrainStore((s) => s.selectedTerrainId);
   const removeTerrain       = useTerrainStore((s) => s.removeTerrain);
   const clearTerrainSel     = useTerrainStore((s) => s.clearTerrainSelection);
+  const tryRotateTerrain    = useTerrainStore((s) => s.tryRotateTerrain);
 
   // ── 플레이스홀더 or 지형 정보 ───────────────────────────────────────
   if (selectedIds.length === 0) {
@@ -59,6 +60,17 @@ export default function FacilityEditor() {
                   <span style={styles.readOnlyHint}> = {t.width*5}×{t.height*5}m</span>
                 </div>
               </Field>
+            </div>
+            <div style={{ padding: '8px 12px 0', borderTop: '1px solid #2a2a40' }}>
+              <button
+                style={{ ...styles.btnRotate, width: '100%' }}
+                onClick={() => {
+                  const ok = tryRotateTerrain(t.id);
+                  if (!ok) window.alert('회전 불가: 부지 경계를 벗어납니다.');
+                }}
+              >
+                ↻ 90° 회전 (R키)
+              </button>
             </div>
             <div style={styles.btnRow}>
               <button style={styles.btnDeselect} onClick={clearTerrainSel}>선택 해제</button>

@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.4 완료 — 지형 요소(강·도로·나무) + Phase 색상.
+v0.2.4.1 완료 — 지형 편집(이동·회전) + 라벨 줌 깨짐 수정.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -62,6 +62,23 @@ v0.2.4 완료 — 지형 요소(강·도로·나무) + Phase 색상.
   - R키 핸들러: tryRotateSelected()로 단순화
 - 헌법 0조 보안 체크 ✅ (localStorage 전용, 서버 전송 0줄)
 
+### ✅ v0.2.4.1 완료 (2026-05-31) — 지형 편집(이동·회전) + 라벨 줌 깨짐 수정
+
+- `src/state/terrainStore.js`:
+  - `updateTerrain(id, changes)` — 드래그 이동 (col/row 정수 저장)
+  - `tryRotateTerrain(id)` — AABB 사전 검사 + 회전 (부지 밖 Hard Block, return boolean)
+  - 지형끼리 겹침 허용 (강+도로 교차 등 현실 표현, 단순화)
+- `src/phaser/GridScene.js`:
+  - `_terrainDrag` 상태 추가 + pointermove 지형 드래그 (시설과 동일 패턴)
+  - R키: 시설 선택 없을 때 지형 회전으로 fallback
+- `src/components/FacilityEditor.jsx`:
+  - 지형 정보 패널에 "↻ 90° 회전 (R키)" 버튼 추가 → tryRotateTerrain()
+- 파트 B — 라벨 줌 깨짐 수정 (방법 b: resolution=4):
+  - `FacilityRenderer.js`: 약어/시설명 라벨 `.setResolution(4)` 적용
+  - `TerrainRenderer.js`: 지형명 라벨 `.setResolution(4)` 적용
+  - 이유: 최대줌 4x에서도 내부 픽셀이 1:1 → 선명. 카메라 코드 비접촉.
+- 헌법 0조 보안 체크 ✅
+
 ### ✅ v0.2.4 완료 (2026-05-31) — 지형 요소 + Phase 색상
 
 - `src/phaser/config.js`: `TERRAIN_COLORS` + `PHASE_COLORS` 추가
@@ -116,8 +133,8 @@ v0.2.4 완료 — 지형 요소(강·도로·나무) + Phase 색상.
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.4 체크리스트)
-2. v0.2.5: 로컬 저장/불러오기 + PNG 캡처
+1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.4.1 체크리스트)
+2. v0.2.5: localStorage 다중 레이아웃 저장/불러오기 + PNG 캡처 (설계 완료)
 
 ## Backlog
 

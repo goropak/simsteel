@@ -98,6 +98,8 @@ export class GridScene extends Phaser.Scene {
     this._drag          = { active: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0 };
     this._facDrag       = { active: false, id: null, startWX: 0, startWY: 0,
                             startCol: 0, startRow: 0, lastCol: -1, lastRow: -1 };
+    this._terrainDrag   = { active: false, id: null, startWX: 0, startWY: 0,
+                            startCol: 0, startRow: 0, lastCol: -1, lastRow: -1 };
     this._storeUnsub    = null;
     this._terrainUnsub  = null;
     this._renderer      = null;
@@ -295,6 +297,19 @@ export class GridScene extends Phaser.Scene {
       if (hitTerrId) {
         store.clearSelection();
         tStore.selectTerrain(hitTerrId);
+        // 지형 드래그 준비 (시설과 동일 패턴)
+        const terr = tStore.terrains.find((x) => x.id === hitTerrId);
+        if (terr) {
+          this._terrainDrag.active   = true;
+          this._terrainDrag.id       = hitTerrId;
+          this._terrainDrag.startWX  = worldX;
+          this._terrainDrag.startWY  = worldY;
+          this._terrainDrag.startCol = terr.col;
+          this._terrainDrag.startRow = terr.row;
+          this._terrainDrag.lastCol  = terr.col;
+          this._terrainDrag.lastRow  = terr.row;
+          this.input.setDefaultCursor('move');
+        }
         return;
       }
 
@@ -307,8 +322,9 @@ export class GridScene extends Phaser.Scene {
     });
 
     this.input.on('pointerup', () => {
-      this._drag.active = false;
-      this._facDrag.active = false;
+      this._drag.active        = false;
+      this._facDrag.active     = false;
+      this._terrainDrag.active = false;
       const paletteTypeId = useFacilitiesStore.getState().paletteSelectedTypeId;
       this.input.setDefaultCursor(paletteTypeId ? 'crosshair' : 'default');
     });
@@ -343,6 +359,31 @@ export class GridScene extends Phaser.Scene {
           store.updateFacility(this._facDrag.id, {
             position: { col: newCol, row: newRow },
           });
+        }
+      }
+
+      // 지형 드래그 이동 (타일 게임 좌표 3계 분리 — col/row 정수만 저장)
+      if (this._terrainDrag.active) {
+        const tState = useTerrainStore.getState();
+        const facState = useFacilitiesStore.getState();
+        const { siteSize } = facState;
+        const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+        const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+        const terr = tState.terrains.find((x) => x.id === this._terrainDrag.id);
+        if (terr) {
+          const wX   = pointer.worldX;
+          const wY   = pointer.worldY;
+          const dCol = Math.round((wX - this._terrainDrag.startWX) / cellPx);
+          const dRow = Math.round((wY - this._terrainDrag.startWY) / cellPx);
+          const rawCol = this._terrainDrag.startCol + dCol;
+          const rawRow = this._terrainDrag.startRow + dRow;
+          const newCol = Math.max(0, Math.min(rawCol, siteCols - terr.width));
+          const newRow = Math.max(0, Math.min(rawRow, siteRows - terr.height));
+          if (newCol !== this._terrainDrag.lastCol || newRow !== this._terrainDrag.lastRow) {
+            this._terrainDrag.lastCol = newCol;
+            this._terrainDrag.lastRow = newRow;
+            tState.updateTerrain(this._terrainDrag.id, { col: newCol, row: newRow });
+          }
         }
       }
 
@@ -393,11 +434,15 @@ export class GridScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-DELETE',   handleDelete);
     this.input.keyboard.on('keydown-BACKSPACE', handleDelete);
 
-    // R: 선택 시설 90도 회전
+    // R: 선택 시설 또는 선택 지형 90도 회전
     this.input.keyboard.on('keydown-R', () => {
-      const state = useFacilitiesStore.getState();
-      if (state.selectedIds.length === 0) return;
-      state.tryRotateSelected();
+      const state  = useFacilitiesStore.getState();
+      const tState = useTerrainStore.getState();
+      if (state.selectedIds.length > 0) {
+        state.tryRotateSelected();
+      } else if (tState.selectedTerrainId) {
+        tState.tryRotateTerrain(tState.selectedTerrainId);
+      }
     });
 
     // Cmd+D / Ctrl+D: 복제

@@ -81,14 +81,14 @@ export class FacilityRenderer {
       const showAbbrev = zoom >= 0.25;
       const showName   = zoom >= 0.8;
 
-      // 약어 라벨 풀
+      // 약어 라벨 풀 (resolution=4 → 최대줌 4x에서도 선명)
       const abbrevText = fac.abbrev || fac.name.slice(0, 4);
       if (i >= this._abbrevLabels.length) {
         this._abbrevLabels.push(
           this.scene.add.text(0, 0, '', {
             fontFamily: 'Courier New, monospace',
             color: '#3D2E1F',
-          }).setDepth(11)
+          }).setDepth(11).setResolution(4)
         );
       }
       const abbrevLabel = this._abbrevLabels[i];
@@ -103,7 +103,7 @@ export class FacilityRenderer {
       );
       abbrevLabel.setVisible(showAbbrev);
 
-      // 시설명 라벨 (줌 > 0.8에서만 표시, 약어 아래)
+      // 시설명 라벨 (줌 > 0.8에서만 표시, 약어 아래) — resolution=4
       if (i >= this._nameLabels.length) {
         this._nameLabels.push(
           this.scene.add.text(0, 0, '', {
@@ -112,7 +112,7 @@ export class FacilityRenderer {
             fontFamily: 'Courier New, monospace',
             backgroundColor: '#00000070',
             padding: { x: 2, y: 1 },
-          }).setDepth(11)
+          }).setDepth(11).setResolution(4)
         );
       }
       const nameLabel = this._nameLabels[i];

@@ -51,7 +51,7 @@ export class TerrainRenderer {
       }
       g.strokeRect(x, y, w, h);
 
-      // 라벨 (줌 > 0.25)
+      // 라벨 (줌 > 0.25) — resolution=4로 줌인 선명도 보장
       if (zoom >= 0.25) {
         if (i >= this._labels.length) {
           this._labels.push(
@@ -61,7 +61,7 @@ export class TerrainRenderer {
               fontFamily: 'Courier New, monospace',
               backgroundColor: '#00000070',
               padding: { x: 1, y: 1 },
-            }).setDepth(6)
+            }).setDepth(6).setResolution(4)
           );
         }
         const label = this._labels[i];
