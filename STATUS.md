@@ -6,7 +6,7 @@
 
 ## Now
 
-v0.2.8 완료 — 레이아웃 JSON import + 부지경계 표시 + 카메라 fit.
+v0.2.9 완료 — 레이아웃 JSON export (import 왕복 호환).
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -61,6 +61,23 @@ v0.2.8 완료 — 레이아웃 JSON import + 부지경계 표시 + 카메라 fit
   - `_placeFacility`: 커스텀 typeId 조회 추가 (값 복사 배치)
   - R키 핸들러: tryRotateSelected()로 단순화
 - 헌법 0조 보안 체크 ✅ (localStorage 전용, 서버 전송 0줄)
+
+### ✅ v0.2.9 완료 (2026-05-31) — 레이아웃 JSON export (왕복 호환)
+
+- `src/components/ImportPanel.jsx` (v0.2.8 패널 확장):
+  - 헤더: "Import / Export"로 변경
+  - `cellToPct()` 역변환 함수 — import `pctToCell()`의 정확한 역연산
+  - `doExport()`:
+    - siteBoundary 없는 경우: 전체 siteSize를 boundary로 폴백 (offsetX=0, Y=0)
+    - worldSize 없는 경우: siteSize와 동일로 폴백
+    - JSON.parse(JSON.stringify(...)) 깊은 복사로 frozen 객체 방지
+    - Blob + createObjectURL 로컬 다운로드 (네트워크 전송 0줄)
+    - 파일명: 레이아웃명.json (특수문자 '-'로 치환)
+    - 첫 export 안내 토스트 1회 (`simsteel:export-warned`)
+  - export 버튼: 녹색 계열 스타일로 import와 시각 구분
+  - `import { GRID_CONFIG }` 추가 (cellSize 참조)
+- 결정 근거: decisions/2026-05-31-simsteel-export-unblock.md
+- 보안 ✅: Blob 다운로드 = 외부 전송 구조적 차단
 
 ### ✅ v0.2.8 완료 (2026-05-31) — 레이아웃 JSON import + 부지경계 표시 + 카메라 fit
 
@@ -169,7 +186,7 @@ v0.2.8 완료 — 레이아웃 JSON import + 부지경계 표시 + 카메라 fit
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.8 체크리스트)
+1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.9 체크리스트, 특히 ④ 왕복 정합성)
 2. v0.2.8.5: 배경 트레이싱 (이미지 오버레이 + 투명도 조절)
 
 ## Backlog

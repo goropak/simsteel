@@ -1,20 +1,33 @@
 /**
- * 레이아웃 JSON import 패널 (v0.2.8)
+ * 레이아웃 JSON import / export 패널 (v0.2.8 + v0.2.9)
  *
  * 보안 (헌법 0조 부칙):
- *   - FileReader 브라우저 내 처리, 외부 전송 0.
+ *   - import: FileReader 브라우저 내 처리, 외부 전송 0.
+ *   - export: Blob + createObjectURL 로컬 다운로드, 네트워크 전송 0줄.
  *   - 이미지 자동 인식 미구현 (0조 부칙 위반 방지).
  *
  * 교훈 적용:
- *   - 타일 게임 좌표 3계 분리: xPct→절대셀 변환 시 Math.round로 정수 보장.
- *   - 상태 스냅샷 깊은 복사: 주입 전 JSON.parse(JSON.stringify(...)).
- *   - 카메라 수동 계산 금지: _fitToSiteBoundary에서 내장 centerOn 사용.
+ *   - 타일 게임 좌표 3계 분리: xPct↔절대셀 변환 시 Math.round 정수 보장.
+ *   - 상태 스냅샷 깊은 복사: import 주입 전 JSON.parse(JSON.stringify(...)).
+ *   - 보안·구조로 보장: Blob 다운로드 = 외부 전송 구조적 차단.
  */
 import { useState, useRef } from 'react';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 import { useTerrainStore } from '../state/terrainStore.js';
 import { useImportStore } from '../state/importStore.js';
 import { getGame } from '../phaser/gameInstance.js';
+import { GRID_CONFIG } from '../phaser/config.js';
+
+const EXPORT_WARN_KEY = 'simsteel:export-warned';
+
+/**
+ * 절대셀 → 상대% 역변환 (import의 정확한 역연산)
+ * import: absolute = offset + round(pct/100 * size)
+ * export: pct = (absolute - offset) / size * 100
+ */
+function cellToPct(absolute, offsetCells, sizeCells) {
+  return (absolute - offsetCells) / sizeCells * 100;
+}
 
 /** JSON 규격 유효성 검사 */
 function validateLayout(data) {
@@ -43,6 +56,71 @@ export default function ImportPanel() {
 
   const showOk  = (msg) => { setToast(msg);    setTimeout(() => setToast(''),    4000); };
   const showErr = (msg) => { setToastErr(msg); setTimeout(() => setToastErr(''), 6000); };
+
+  // ── export 실행 ─────────────────────────────────────────────
+  const doExport = () => {
+    const facState    = useFacilitiesStore.getState();
+    const importState = useImportStore.getState();
+    const cellMeters  = GRID_CONFIG.cellSize;  // 5
+
+    // siteBoundary: import 시 저장된 값 우선, 없으면 전체 siteSize를 boundary로 폴백
+    const boundary = importState.siteBoundary ?? {
+      wCells:       Math.round(facState.siteSize.widthM  / cellMeters),
+      hCells:       Math.round(facState.siteSize.heightM / cellMeters),
+      offsetXCells: 0,
+      offsetYCells: 0,
+    };
+
+    // worldSize: import 시 저장된 값 우선, 없으면 siteSize와 동일
+    const worldSize = importState.importMeta?.worldSize ?? {
+      wCells:    boundary.wCells,
+      hCells:    boundary.hCells,
+      cellMeters,
+    };
+
+    // 교훈: 상태 스냅샷 깊은 복사 — frozen 객체 문제 방지
+    const facilities = JSON.parse(JSON.stringify(facState.facilities));
+
+    // 절대셀 → 상대% 역변환 (왕복 정합성 — import 역연산)
+    const exportFacilities = facilities.map((f) => {
+      const entry = {
+        id:   f.id,
+        name: f.name,
+        xPct: parseFloat(cellToPct(f.position.col, boundary.offsetXCells, boundary.wCells).toFixed(4)),
+        yPct: parseFloat(cellToPct(f.position.row, boundary.offsetYCells, boundary.hCells).toFixed(4)),
+        wPct: parseFloat((f.size.width  / boundary.wCells * 100).toFixed(4)),
+        hPct: parseFloat((f.size.height / boundary.hCells * 100).toFixed(4)),
+      };
+      if (f.confidence) entry.confidence = f.confidence;
+      return entry;
+    });
+
+    const layoutName = importState.importMeta?.name ?? '레이아웃';
+    const data = { name: layoutName, worldSize, siteBoundary: boundary, facilities: exportFacilities };
+
+    const safeName = layoutName.replace(/[/\\?%*:|"<>]/g, '-');
+
+    // Blob 다운로드 — 외부 전송 0 (로컬 파일만)
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = `${safeName}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // 첫 export 안내 토스트 1회 (차단 아님), 이후엔 완료 메시지
+    const isFirst = !localStorage.getItem(EXPORT_WARN_KEY);
+    if (isFirst) {
+      localStorage.setItem(EXPORT_WARN_KEY, '1');
+      showOk('이 파일에 시설 배치 정보가 포함됩니다. 공유에 유의하세요.');
+    } else {
+      showOk(`"${safeName}.json" 다운로드 완료`);
+    }
+  };
 
   // ── import 실행 ─────────────────────────────────────────────
   const doImport = (text) => {
@@ -139,7 +217,7 @@ export default function ImportPanel() {
   return (
     <div style={styles.panel}>
       <div style={styles.header}>
-        <span>레이아웃 Import</span>
+        <span>Import / Export</span>
         <button style={styles.toggle} onClick={() => setOpen((v) => !v)}>
           {open ? '▴ 닫기' : '▾ 열기'}
         </button>
@@ -190,6 +268,15 @@ export default function ImportPanel() {
               </button>
             </div>
           )}
+
+          {/* export 버튼 — import와 동일 패널 내, 구분선 아래 */}
+          <div style={styles.exportDivider} />
+          <button style={styles.exportBtn} onClick={doExport}>
+            📤 JSON export (왕복 호환)
+          </button>
+          <div style={styles.hint}>
+            현재 배치를 JSON으로 저장 · import와 동일 규격
+          </div>
         </div>
       )}
 
@@ -276,6 +363,25 @@ const styles = {
     fontSize: '9px',
     color: '#333355',
     lineHeight: 1.6,
+    marginBottom: '4px',
+  },
+  exportDivider: {
+    borderTop: '1px solid #1e1e2e',
+    margin: '8px 0 6px',
+  },
+  exportBtn: {
+    width: '100%',
+    background: '#1a2010',
+    border: '1px solid #4a7030',
+    borderRadius: '3px',
+    color: '#88cc66',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '10px',
+    padding: '6px',
+    cursor: 'pointer',
+    boxSizing: 'border-box',
+    display: 'block',
+    marginBottom: '6px',
   },
   toast: {
     position: 'absolute',
