@@ -860,7 +860,11 @@ export class GridScene extends Phaser.Scene {
     const version = ++this._bgVersion;
     const key = '__bg_trace__';
 
-    if (this._bgImageObj) { this._bgImageObj.destroy(); this._bgImageObj = null; }
+    if (this._bgImageObj) {
+      const old = this._bgImageObj;
+      this._bgImageObj = null;  // 참조 먼저 끊기 (구독 콜백 null 가드 즉시 통과)
+      old.destroy();
+    }
     if (this.textures.exists(key)) this.textures.remove(key);
 
     this.textures.once('addtexture-' + key, () => {
@@ -978,6 +982,7 @@ export class GridScene extends Phaser.Scene {
       const hp = this._handlePx();
       const obj = this._bgImageObj;
       const centers = this._getBgHandleCenters();
+      if (!centers) return;
       g.lineStyle(1.5, 0x00ccff, 0.6);
       g.strokeRect(obj.x, obj.y, obj.displayWidth, obj.displayHeight);
       Object.values(centers).forEach(({ x, y }) => {
