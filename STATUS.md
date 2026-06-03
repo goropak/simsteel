@@ -6,6 +6,14 @@
 
 ## Now
 
+v0.2.8.7 완료 (2026-06-03) — 배경 트레이싱 (이미지 오버레이 + 투명도 조절).
+- 로컬 파일 선택 UI (File API → FileReader → base64 → Phaser texture, 외부 전송 0)
+- 배경 이미지 depth 0.5 (siteFill(0) 위, grid(1) 아래) — 월드 좌표 배치
+- 이미지 투명도 슬라이더 + 격자 투명도 슬라이더 (배경이 잘 보이도록)
+- 교체/제거 버튼
+- 브라우저 검증: 배경 표시 ✅ / 격자 투명도 조절 ✅ / 시설 배치 회귀 ✅ / PNG export 143KB ✅
+- 줌 정렬: world 좌표계 동일 경로 구조 보장 (headless wheel 미도달)
+
 v0.2.8.6 완료 (2026-06-03) — 시설 크기 마우스 드래그 조정 (리사이즈 핸들).
 - 선택된 단일 시설 4모서리에 흰 사각형 핸들 표시 (depth 12, zoom-responsive 크기)
 - BR/TL/TR/BL 핸들 드래그 → size.width/height + position 셀 단위 갱신
@@ -197,7 +205,7 @@ pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pr
 
 ## Next
 
-1. v0.2.9: 번호 자동 증가 (#1, #2) or 다음 백로그 항목
+1. 백로그 중 우선 항목 선택 (사용자 결정)
 
 ## Backlog
 
