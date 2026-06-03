@@ -22,6 +22,9 @@ const FACILITY_DEFAULTS = {
   stacker:     { width: 5,  height: 30, color: '#7a8c6e', baseName: '스태커',      abbrev: 'STK', confirmed: false, source: 'TEFR Dastur 2021 §3 (추정)' },
   reclaimer:   { width: 5,  height: 30, color: '#7a8c6e', baseName: '리클레이머',  abbrev: 'RCL', confirmed: false, source: 'TEFR Dastur 2021 §3 (추정)' },
 
+  // ── 펠릿 ──────────────────────────────────────────────────────
+  pellet_plant:   { width: 18, height: 22, color: '#b5763a', baseName: '펠릿 플랜트', abbrev: 'PP', confirmed: false, source: '추정 스펙 — 미확정' },
+
   // ── 소결 ──────────────────────────────────────────────────────
   sinter_machine: { width: 15, height: 20, color: '#c0854a', baseName: '소결기',    abbrev: 'SP', confirmed: true,  source: 'TEFR Dastur 2021 §4' },
   sinter_cooler:  { width: 10, height: 8,  color: '#c0854a', baseName: '소결 쿨러', abbrev: 'SC', confirmed: false, source: 'TEFR Dastur 2021 §4 (추정)' },

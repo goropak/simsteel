@@ -6,6 +6,11 @@
 
 ## Now
 
+v0.3.2 완료 (2026-06-03) — 펠릿 플랜트 활성화.
+- GridScene 설비 데이터에 pellet_plant 추가(18×22, abbrev PP, confirmed:false 추정 스펙)
+- facilityCategories pellet_plant enabled:true, 주석 정리
+- 배치·export 왕복 정상(drift 0), 소결기 회귀 없음, 실측 스펙 확정 시 confirmed:true 전환 예정
+
 v0.3.1 완료 (2026-06-03) — 가벼운 시각 애니메이션(배치 페이드인+선택 펄스, Tween).
 - Phaser Tween 진행값을 render에 전달, onUpdate에서 재그리기 — Tween 종료 시 자동 정지(상시 매프레임 X)
 - 페이드인 250ms(Quad.easeOut) / 선택 펄스 yoyo 무한(Sine.easeInOut), animEnabled 토글 ON/OFF

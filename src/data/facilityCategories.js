@@ -4,7 +4,7 @@
  *
  * 활성 30종 (선강 일관 공정):
  *   원료처리 5, 소결 2, 코크스 3, 고로 4, 제강 5, 압연 5, 부대설비 6
- * 비활성 2종: 펠릿 (선강 영역 외, 추후 활성화)
+ * 펠릿: 활성화됨(스펙 추정, confirmed:false). 선강 영역 외 — 실측 스펙 확정 시 confirmed:true로.
  *
  * source: TEFR M.N. Dastur & Company 2021 (공개 자료)
  */
@@ -24,7 +24,7 @@ export const FACILITY_CATEGORIES = [
     id: 'pellet',
     name: '펠릿',
     facilities: [
-      { id: 'pellet_plant',     name: '펠릿 플랜트', enabled: false },
+      { id: 'pellet_plant',     name: '펠릿 플랜트', enabled: true },
       { id: 'concentrate_yard', name: '정광 야드',   enabled: false },
     ],
   },
