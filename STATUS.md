@@ -6,6 +6,12 @@
 
 ## Now
 
+v0.2.8.9.2 완료 (2026-06-03) — 배경 트레이싱 scale/offset UI 마감.
+- BgImagePanel에 크기 슬라이더(10~300%) + 위치·크기 초기화 버튼 추가
+- store 단일 출처로 드래그·슬라이더 자동 동기화 (setBgScale(2.0) → 슬라이더 200% 반영)
+- 배경 트레이싱 기능 완성 (오버레이·투명도·scale·offset·드래그 핸들 전부 UI 제공)
+- bg 코드 기인 pageerror 0건 유지
+
 v0.2.8.9.1 hotfix (2026-06-03) — 배경 트레이싱 잔여 null 에러 정리.
 - _getBgHandleCenters null 가드 (centers null 시 return) + _loadBgTexture destroy 순서 수정(참조 먼저 null)
 - bg 코드 기인 pageerror 0건 확인 (잔류 1건은 Phaser headless WebGL 초기화 에러 — bg 코드와 무관)
@@ -223,7 +229,7 @@ pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pr
 
 ## Next
 
-1. 백로그 중 우선 항목 선택 (사용자 결정) — 배경 트레이싱 UX 마감(슬라이더 UI) 또는 v0.3.x 시작
+1. 백로그 중 우선 항목 선택 (사용자 결정)
 
 ## Backlog
 

@@ -12,10 +12,15 @@ export default function BgImagePanel() {
   const bgImageDataUrl = useBgImageStore((s) => s.bgImageDataUrl);
   const bgOpacity      = useBgImageStore((s) => s.bgOpacity);
   const gridOpacity    = useBgImageStore((s) => s.gridOpacity);
+  const bgScale        = useBgImageStore((s) => s.bgScale);
+  const bgOffsetX      = useBgImageStore((s) => s.bgOffsetX);
+  const bgOffsetY      = useBgImageStore((s) => s.bgOffsetY);
   const setBgImage     = useBgImageStore((s) => s.setBgImage);
   const clearBgImage   = useBgImageStore((s) => s.clearBgImage);
   const setBgOpacity   = useBgImageStore((s) => s.setBgOpacity);
   const setGridOpacity = useBgImageStore((s) => s.setGridOpacity);
+  const setBgScale     = useBgImageStore((s) => s.setBgScale);
+  const setBgOffset    = useBgImageStore((s) => s.setBgOffset);
 
   const fileInputRef = useRef(null);
 
@@ -71,6 +76,28 @@ export default function BgImagePanel() {
                 style={styles.slider}
               />
               <span style={styles.sliderVal}>{Math.round(gridOpacity * 100)}%</span>
+            </div>
+
+            <div style={styles.sliderRow}>
+              <span style={styles.sliderLabel}>크기</span>
+              <input
+                type="range"
+                min={10}
+                max={300}
+                value={Math.round(bgScale * 100)}
+                onChange={(e) => setBgScale(Number(e.target.value) / 100)}
+                style={styles.slider}
+              />
+              <span style={styles.sliderVal}>{Math.round(bgScale * 100)}%</span>
+            </div>
+
+            <div style={styles.btnRow}>
+              <button
+                style={styles.changeBtn}
+                onClick={() => { setBgScale(1); setBgOffset(0, 0); }}
+              >
+                위치·크기 초기화
+              </button>
             </div>
 
             <div style={styles.btnRow}>
