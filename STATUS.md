@@ -6,6 +6,18 @@
 
 ## Now
 
+v0.2.8.9.1 hotfix (2026-06-03) — 배경 트레이싱 잔여 null 에러 정리.
+- _getBgHandleCenters null 가드 (centers null 시 return) + _loadBgTexture destroy 순서 수정(참조 먼저 null)
+- bg 코드 기인 pageerror 0건 확인 (잔류 1건은 Phaser headless WebGL 초기화 에러 — bg 코드와 무관)
+
+v0.2.8.9 완료 (2026-06-03) — 배경 트레이싱 핸들 인터랙션(scale/offset 드래그).
+- 배경 클릭 → _bgSelected=true, 4코너 청록 핸들 + 아웃라인 표시
+- 코너 핸들 드래그 → bgScale 갱신 (대각 거리 비율, 0.1~5.0 클램프)
+- 본체 드래그 → bgOffsetX/Y 갱신 (월드 좌표 델타)
+- _removeBgImage null 참조 수정 (참조 먼저 null, setVisible(false) 후 destroy)
+- 시설 우선순위 유지 (hitTest 순서: 시설 → 지형 → 배경)
+- 브라우저 검증: body drag offset 50,50 ✅ / scale 1→2 ✅ / clearBgImage 에러 0건 ✅
+
 v0.2.8.8 완료 (2026-06-03) — 배경 트레이싱 scale/offset 상태 + _applyBgTransform 통합.
 - bgScale, bgOffsetX, bgOffsetY 필드·setter 추가 (clearBgImage 리셋 포함)
 - _applyBgTransform() 헬퍼 — 사이트 크기×bgScale + offset 반영, setDisplaySize 중복 제거
@@ -211,7 +223,7 @@ pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pr
 
 ## Next
 
-1. v0.2.8.9: 배경 트레이싱 크기/위치 조절 핸들 인터랙션 (UI 슬라이더 또는 드래그 핸들)
+1. 백로그 중 우선 항목 선택 (사용자 결정) — 배경 트레이싱 UX 마감(슬라이더 UI) 또는 v0.3.x 시작
 
 ## Backlog
 
