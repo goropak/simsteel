@@ -7,6 +7,9 @@
 ## Now
 
 v0.2.9 완료 — 레이아웃 JSON export (import 왕복 호환).
+v0.2.9 export 왕복 정합성 브라우저 검증 완료 (2026-06-03) — 경계·구석 시설 2회 왕복 후 밀림 없음 확인.
+v0.2.9.1 — PNG 캡처 검은 화면 수정: GridCanvas.jsx render에 preserveDrawingBuffer: true 추가 (2026-06-03). 교훈 #12 적중. 주의: game 생성 시점 설정이라 dev 서버 재시작 필요.
+pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pre-commit.sh + .git/hooks/pre-commit.
 
 ### ✅ v0.2.1 완료 (2026-05-29)
 - references/ 시스템 활성화 완료 (PDF 6개, 메타파일 7개, 총 45.5 MB)
@@ -186,8 +189,7 @@ v0.2.9 완료 — 레이아웃 JSON export (import 왕복 호환).
 
 ## Next
 
-1. `npm run dev` → 브라우저 검증 (①~⑨ — v0.2.9 체크리스트, 특히 ④ 왕복 정합성)
-2. v0.2.8.5: 배경 트레이싱 (이미지 오버레이 + 투명도 조절)
+1. v0.2.8.5: 배경 트레이싱 (이미지 오버레이 + 투명도 조절)
 
 ## Backlog
 

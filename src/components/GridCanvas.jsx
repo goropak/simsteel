@@ -41,6 +41,7 @@ export default function GridCanvas({ onCoordUpdate, onZoomUpdate }) {
         keyboard: true,
       },
       render: {
+        preserveDrawingBuffer: true,
         antialias: false,
       },
     });

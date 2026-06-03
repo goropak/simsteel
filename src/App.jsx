@@ -19,7 +19,7 @@ export default function App() {
       {/* 헤더 */}
       <header style={styles.header}>
         <span style={styles.logo}>simsteel</span>
-        <span style={styles.version}>v0.2.8</span>
+        <span style={styles.version}>v0.2.9</span>
         <span style={styles.subtitle}>Steel Plant Layout Visualizer</span>
       </header>
 
