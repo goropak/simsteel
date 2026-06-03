@@ -5,6 +5,7 @@ import { TerrainRenderer } from './TerrainRenderer.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 import { useTerrainStore } from '../state/terrainStore.js';
 import { useImportStore } from '../state/importStore.js';
+import { useBgImageStore } from '../state/bgImageStore.js';
 
 /**
  * 시설 타입별 배치 기본값
@@ -104,6 +105,7 @@ export class GridScene extends Phaser.Scene {
     this._storeUnsub    = null;
     this._terrainUnsub  = null;
     this._importUnsub   = null;
+    this._bgUnsub       = null;
     this._renderer      = null;
     this._terrainRend   = null;
     this._cellPx        = 0;
@@ -111,6 +113,14 @@ export class GridScene extends Phaser.Scene {
     this._outsideGfx    = null;
     this._siteFillGfx   = null;
     this._importBndGfx  = null;  // import 부지경계 박스 (depth 4)
+    this._gridGfx       = null;  // 격자선 그래픽스 (depth 1) — opacity 제어용
+    this._bgImageObj    = null;  // 배경 트레이싱 이미지 (depth 0.5)
+    this._bgVersion     = 0;     // 비동기 texture load 버전 카운터
+
+    this._resizeDrag      = { active: false, handle: null, facId: null,
+                              anchorCol: 0, anchorRow: 0,
+                              lastW: 0, lastH: 0, lastCol: 0, lastRow: 0 };
+    this._resizeHandleGfx = null;
   }
 
   create() {
@@ -135,7 +145,7 @@ export class GridScene extends Phaser.Scene {
     this._outsideGfx  = this.add.graphics().setDepth(0);
 
     // ── 격자선 (depth 1) ──────────────────────────────────────
-    const g = this.add.graphics().setDepth(1);
+    const g = this._gridGfx = this.add.graphics().setDepth(1);
 
     g.lineStyle(1, GRID_COLORS.gridThin, 0.6);
     for (let x = 0; x <= maxCells; x++) {
@@ -186,6 +196,9 @@ export class GridScene extends Phaser.Scene {
     // ── 시설 렌더러 (depth 10) ────────────────────────────────
     this._renderer = new FacilityRenderer(this);
 
+    // ── 리사이즈 핸들 (depth 12) ─────────────────────────────
+    this._resizeHandleGfx = this.add.graphics().setDepth(12);
+
     // ── 시설 store 구독 ──────────────────────────────────────
     let prevSiteSize = useFacilitiesStore.getState().siteSize;
     this._storeUnsub = useFacilitiesStore.subscribe((state) => {
@@ -198,11 +211,13 @@ export class GridScene extends Phaser.Scene {
           cellPx, siteCols, siteRows,
           state.phaseViewEnabled,
         );
+        this._drawResizeHandles(state.facilities, state.selectedIds, cellPx);
       }
       if (state.siteSize !== prevSiteSize) {
         prevSiteSize = state.siteSize;
         this._drawBoundary();
         this._centerCameraOnSite();
+        this._updateBgImageSize();
       }
       if (this.input && !this._drag.active) {
         this.input.setDefaultCursor(state.paletteSelectedTypeId ? 'crosshair' : 'default');
@@ -221,6 +236,26 @@ export class GridScene extends Phaser.Scene {
       this._drawImportBoundary(state.siteBoundary, cellPx);
     });
 
+    // 배경 트레이싱 store 구독 (v0.2.8.5)
+    // prevBgDataUrl 클로저로 URL 변경 여부를 추적 — 슬라이더 조작 시 texture 재로드 방지
+    let prevBgDataUrl = null;
+    this._bgUnsub = useBgImageStore.subscribe((state) => {
+      const { bgImageDataUrl, bgOpacity, gridOpacity } = state;
+
+      if (this._gridGfx) this._gridGfx.setAlpha(gridOpacity);
+
+      if (bgImageDataUrl !== prevBgDataUrl) {
+        prevBgDataUrl = bgImageDataUrl;
+        if (!bgImageDataUrl) {
+          this._removeBgImage();
+        } else {
+          this._loadBgTexture(bgImageDataUrl, bgOpacity);
+        }
+      } else if (this._bgImageObj) {
+        this._bgImageObj.setAlpha(bgOpacity);
+      }
+    });
+
     // 초기 렌더
     const init = useFacilitiesStore.getState();
     const initSiteCols = init.siteSize.widthM  / GRID_CONFIG.cellSize;
@@ -233,6 +268,7 @@ export class GridScene extends Phaser.Scene {
 
     const tInit = useTerrainStore.getState();
     this._terrainRend.render(tInit.terrains, tInit.selectedTerrainId, cellPx);
+    this._drawResizeHandles(init.facilities, init.selectedIds, cellPx);
 
     // 최초 부지 중심 정렬 (500ms fallback)
     this.time.delayedCall(500, () => this._centerCameraOnSite());
@@ -253,6 +289,9 @@ export class GridScene extends Phaser.Scene {
 
       this._clampCamera();
       if (this.onZoomUpdate) this.onZoomUpdate(cam.zoom);
+      // 줌 변경 시 핸들 크기 재계산
+      const fState = useFacilitiesStore.getState();
+      this._drawResizeHandles(fState.facilities, fState.selectedIds, cellPx);
     });
 
     // ── 포인터 다운 ──────────────────────────────────────────
@@ -280,6 +319,41 @@ export class GridScene extends Phaser.Scene {
       }
 
       const isMulti = pointer.event.metaKey || pointer.event.ctrlKey;
+
+      // ── 리사이즈 핸들 hitTest (시설 드래그보다 우선) ──────────
+      if (!isMulti && store.selectedIds.length === 1) {
+        const singleFac = store.facilities.find((f) => f.id === store.selectedIds[0]);
+        if (singleFac) {
+          const handle = this._hitTestResizeHandle(worldX, worldY, singleFac, cellPx);
+          if (handle) {
+            const rd = this._resizeDrag;
+            rd.active = true;
+            rd.handle = handle;
+            rd.facId  = singleFac.id;
+            if (handle === 'br') {
+              rd.anchorCol = singleFac.position.col;
+              rd.anchorRow = singleFac.position.row;
+            } else if (handle === 'tl') {
+              rd.anchorCol = singleFac.position.col + singleFac.size.width;
+              rd.anchorRow = singleFac.position.row + singleFac.size.height;
+            } else if (handle === 'tr') {
+              rd.anchorCol = singleFac.position.col;
+              rd.anchorRow = singleFac.position.row + singleFac.size.height;
+            } else { // bl
+              rd.anchorCol = singleFac.position.col + singleFac.size.width;
+              rd.anchorRow = singleFac.position.row;
+            }
+            rd.lastW   = singleFac.size.width;
+            rd.lastH   = singleFac.size.height;
+            rd.lastCol = singleFac.position.col;
+            rd.lastRow = singleFac.position.row;
+            const HANDLE_CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
+                                     bl: 'nesw-resize', br: 'nwse-resize' };
+            this.input.setDefaultCursor(HANDLE_CURSORS[handle]);
+            return;
+          }
+        }
+      }
 
       // 시설 우선 hitTest
       const hitFacId = this._renderer.hitTest(worldX, worldY, store.facilities, cellPx);
@@ -336,6 +410,7 @@ export class GridScene extends Phaser.Scene {
       this._drag.active        = false;
       this._facDrag.active     = false;
       this._terrainDrag.active = false;
+      this._resizeDrag.active  = false;
       const paletteTypeId = useFacilitiesStore.getState().paletteSelectedTypeId;
       this.input.setDefaultCursor(paletteTypeId ? 'crosshair' : 'default');
     });
@@ -343,6 +418,61 @@ export class GridScene extends Phaser.Scene {
     // ── 포인터 이동 ───────────────────────────────────────────
     this.input.on('pointermove', (pointer) => {
       const cam = this.cameras.main;
+
+      // 리사이즈 드래그 (facDrag보다 우선)
+      if (this._resizeDrag.active) {
+        const rd    = this._resizeDrag;
+        const store = useFacilitiesStore.getState();
+        const { siteSize } = store;
+        const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+        const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+
+        const ptrCol = Math.round(pointer.worldX / cellPx);
+        const ptrRow = Math.round(pointer.worldY / cellPx);
+
+        let newCol = rd.lastCol, newRow = rd.lastRow;
+        let newW   = rd.lastW,   newH   = rd.lastH;
+
+        if (rd.handle === 'br') {
+          newW   = Math.max(1, ptrCol - rd.anchorCol);
+          newH   = Math.max(1, ptrRow - rd.anchorRow);
+          newCol = rd.anchorCol;
+          newRow = rd.anchorRow;
+        } else if (rd.handle === 'tl') {
+          const c = Math.max(0, Math.min(ptrCol, rd.anchorCol - 1));
+          const r = Math.max(0, Math.min(ptrRow, rd.anchorRow - 1));
+          newCol = c; newRow = r;
+          newW   = rd.anchorCol - c;
+          newH   = rd.anchorRow - r;
+        } else if (rd.handle === 'tr') {
+          newW   = Math.max(1, ptrCol - rd.anchorCol);
+          const r = Math.max(0, Math.min(ptrRow, rd.anchorRow - 1));
+          newRow = r;
+          newH   = rd.anchorRow - r;
+          newCol = rd.anchorCol;
+        } else { // bl
+          const c = Math.max(0, Math.min(ptrCol, rd.anchorCol - 1));
+          newCol = c;
+          newW   = rd.anchorCol - c;
+          newH   = Math.max(1, ptrRow - rd.anchorRow);
+          newRow = rd.anchorRow;
+        }
+
+        // 부지 경계 클램프
+        newW = Math.min(newW, siteCols - newCol);
+        newH = Math.min(newH, siteRows - newRow);
+
+        if (newW !== rd.lastW || newH !== rd.lastH || newCol !== rd.lastCol || newRow !== rd.lastRow) {
+          if (!checkAABB(store.facilities, [rd.facId], newCol, newRow, newW, newH)) {
+            rd.lastW   = newW;  rd.lastH   = newH;
+            rd.lastCol = newCol; rd.lastRow = newRow;
+            store.updateFacility(rd.facId, {
+              position: { col: newCol, row: newRow },
+              size:     { width: newW,  height: newH },
+            });
+          }
+        }
+      }
 
       // 시설 드래그 이동 (Phaser 함정 #1: worldX/Y 사용)
       if (this._facDrag.active) {
@@ -403,6 +533,21 @@ export class GridScene extends Phaser.Scene {
         cam.scrollX = this._drag.scrollX - (pointer.x - this._drag.startX) / cam.zoom;
         cam.scrollY = this._drag.scrollY - (pointer.y - this._drag.startY) / cam.zoom;
         this._clampCamera();
+      }
+
+      // 핸들 호버 커서 (드래그 없을 때)
+      if (!this._drag.active && !this._facDrag.active &&
+          !this._terrainDrag.active && !this._resizeDrag.active) {
+        const hState = useFacilitiesStore.getState();
+        if (!hState.paletteSelectedTypeId && hState.selectedIds.length === 1) {
+          const sf = hState.facilities.find((f) => f.id === hState.selectedIds[0]);
+          if (sf) {
+            const hh = this._hitTestResizeHandle(pointer.worldX, pointer.worldY, sf, cellPx);
+            const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
+                              bl: 'nesw-resize', br: 'nwse-resize' };
+            this.input.setDefaultCursor(hh ? CURSORS[hh] : 'default');
+          }
+        }
       }
 
       const cx = Math.max(0, Math.floor(pointer.worldX / cellPx));
@@ -468,15 +613,18 @@ export class GridScene extends Phaser.Scene {
 
     // ── Scene 정리 ───────────────────────────────────────────
     this.events.on('destroy', () => {
-      if (this._storeUnsub)    this._storeUnsub();
-      if (this._terrainUnsub)  this._terrainUnsub();
-      if (this._importUnsub)   this._importUnsub();
-      if (this._renderer)      this._renderer.destroy();
-      if (this._terrainRend)   this._terrainRend.destroy();
-      if (this._boundaryGfx)   this._boundaryGfx.destroy();
-      if (this._outsideGfx)    this._outsideGfx.destroy();
-      if (this._siteFillGfx)   this._siteFillGfx.destroy();
-      if (this._importBndGfx)  this._importBndGfx.destroy();
+      if (this._storeUnsub)      this._storeUnsub();
+      if (this._terrainUnsub)    this._terrainUnsub();
+      if (this._importUnsub)     this._importUnsub();
+      if (this._bgUnsub)         this._bgUnsub();
+      if (this._renderer)        this._renderer.destroy();
+      if (this._terrainRend)     this._terrainRend.destroy();
+      if (this._boundaryGfx)     this._boundaryGfx.destroy();
+      if (this._outsideGfx)      this._outsideGfx.destroy();
+      if (this._siteFillGfx)     this._siteFillGfx.destroy();
+      if (this._importBndGfx)    this._importBndGfx.destroy();
+      if (this._resizeHandleGfx) this._resizeHandleGfx.destroy();
+      if (this._bgImageObj)      this._bgImageObj.destroy();
     });
   }
 
@@ -611,6 +759,48 @@ export class GridScene extends Phaser.Scene {
   }
 
   /**
+   * 배경 트레이싱 이미지 texture 로드 후 배치 (v0.2.8.5).
+   * depth 0.5 — siteFillGfx(0) 위, gridGfx(1) 아래.
+   * 교훈 준수: 월드 좌표(0,0) 배치, 카메라 수식 비접촉.
+   */
+  _loadBgTexture(dataUrl, opacity) {
+    const version = ++this._bgVersion;
+    const key = '__bg_trace__';
+
+    if (this._bgImageObj) { this._bgImageObj.destroy(); this._bgImageObj = null; }
+    if (this.textures.exists(key)) this.textures.remove(key);
+
+    this.textures.once('addtexture-' + key, () => {
+      if (version !== this._bgVersion) return; // 더 새 로드로 대체됨
+      const { siteSize } = useFacilitiesStore.getState();
+      const siteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
+      const siteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
+      this._bgImageObj = this.add.image(0, 0, key)
+        .setOrigin(0, 0)
+        .setDisplaySize(siteW, siteH)
+        .setDepth(0.5)
+        .setAlpha(opacity);
+    });
+    this.textures.addBase64(key, dataUrl);
+  }
+
+  /** 배경 이미지 제거 */
+  _removeBgImage() {
+    if (this._bgImageObj) { this._bgImageObj.destroy(); this._bgImageObj = null; }
+    const key = '__bg_trace__';
+    if (this.textures.exists(key)) this.textures.remove(key);
+  }
+
+  /** 부지 크기 변경 시 배경 이미지 displaySize 갱신 */
+  _updateBgImageSize() {
+    if (!this._bgImageObj) return;
+    const { siteSize } = useFacilitiesStore.getState();
+    const siteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
+    const siteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
+    this._bgImageObj.setDisplaySize(siteW, siteH);
+  }
+
+  /**
    * 카메라를 import 부지경계에 맞게 zoom + centerOn.
    * 교훈:
    *   - 내장 centerOn 사용 (수동 scrollX 계산 금지 — 같은 가설 3회 실패 원칙)
@@ -637,6 +827,61 @@ export class GridScene extends Phaser.Scene {
     const centerY = (boundary.offsetYCells + boundary.hCells / 2) * cellPx;
     cam.centerOn(centerX, centerY);  // 내장 API — 타이밍 독립적
     this._clampCamera();
+  }
+
+  // ── 리사이즈 핸들 헬퍼 (v0.2.8.6) ─────────────────────────────────
+
+  /** 현재 줌에서 화면상 ~10px 에 해당하는 world 픽셀 크기 */
+  _handlePx() {
+    const zoom = this.cameras.main?.zoom || 1;
+    return Math.max(4, Math.min(16, 10 / zoom));
+  }
+
+  /** 시설 4모서리의 world 좌표 반환 */
+  _getHandleCenters(fac, cellPx) {
+    const x = fac.position.col * cellPx;
+    const y = fac.position.row * cellPx;
+    const w = fac.size.width  * cellPx;
+    const h = fac.size.height * cellPx;
+    return {
+      tl: { x,     y     },
+      tr: { x: x+w, y     },
+      bl: { x,     y: y+h },
+      br: { x: x+w, y: y+h },
+    };
+  }
+
+  /** 단일 선택 시설의 4모서리 핸들을 흰 사각형으로 그린다 (depth 12) */
+  _drawResizeHandles(facilities, selectedIds, cellPx) {
+    const g = this._resizeHandleGfx;
+    if (!g) return;
+    g.clear();
+    if (selectedIds.length !== 1) return;
+    const fac = facilities.find((f) => f.id === selectedIds[0]);
+    if (!fac) return;
+    const hp = this._handlePx();
+    const centers = this._getHandleCenters(fac, cellPx);
+    Object.values(centers).forEach(({ x, y }) => {
+      g.fillStyle(0xffffff, 0.92);
+      g.fillRect(x - hp / 2, y - hp / 2, hp, hp);
+      g.lineStyle(1.5, 0x222244, 1.0);
+      g.strokeRect(x - hp / 2, y - hp / 2, hp, hp);
+    });
+  }
+
+  /**
+   * 월드 좌표가 어느 핸들 위인지 반환.
+   * 교훈 #hittest: 핸들 hitArea는 현재 zoom 기준 world 좌표로 계산.
+   * @returns {'tl'|'tr'|'bl'|'br'|null}
+   */
+  _hitTestResizeHandle(worldX, worldY, fac, cellPx) {
+    const hp = this._handlePx();
+    const centers = this._getHandleCenters(fac, cellPx);
+    for (const [key, { x, y }] of Object.entries(centers)) {
+      if (worldX >= x - hp / 2 && worldX <= x + hp / 2 &&
+          worldY >= y - hp / 2 && worldY <= y + hp / 2) return key;
+    }
+    return null;
   }
 
   /**

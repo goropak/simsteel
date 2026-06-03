@@ -6,6 +6,14 @@
 
 ## Now
 
+v0.2.8.6 완료 (2026-06-03) — 시설 크기 마우스 드래그 조정 (리사이즈 핸들).
+- 선택된 단일 시설 4모서리에 흰 사각형 핸들 표시 (depth 12, zoom-responsive 크기)
+- BR/TL/TR/BL 핸들 드래그 → size.width/height + position 셀 단위 갱신
+- checkAABB 충돌 거부 + 부지 경계 클램프
+- 줌 변경 시 핸들 크기 재계산 (handlePx = max(4, min(16, 10/zoom)) world px)
+- 우측 패널 W/H 입력 자동 동기화 (공통 store 경로)
+- 브라우저 검증: W15→25, H20→30 (BR), W→30, H→35 (TL) 정상 확인
+
 v0.2.9 완료 — 레이아웃 JSON export (import 왕복 호환).
 v0.2.9 export 왕복 정합성 브라우저 검증 완료 (2026-06-03) — 경계·구석 시설 2회 왕복 후 밀림 없음 확인.
 v0.2.9.1 — PNG 캡처 검은 화면 수정: GridCanvas.jsx render에 preserveDrawingBuffer: true 추가 (2026-06-03). 교훈 #12 적중. 주의: game 생성 시점 설정이라 dev 서버 재시작 필요.
@@ -189,7 +197,7 @@ pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pr
 
 ## Next
 
-1. v0.2.8.5: 배경 트레이싱 (이미지 오버레이 + 투명도 조절)
+1. v0.2.9: 번호 자동 증가 (#1, #2) or 다음 백로그 항목
 
 ## Backlog
 
