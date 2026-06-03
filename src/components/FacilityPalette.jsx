@@ -31,6 +31,8 @@ export default function FacilityPalette() {
   const togglePhaseView       = useFacilitiesStore((s) => s.togglePhaseView);
   const view2_5d              = useFacilitiesStore((s) => s.view2_5d);
   const setView2_5d           = useFacilitiesStore((s) => s.setView2_5d);
+  const animEnabled           = useFacilitiesStore((s) => s.animEnabled);
+  const setAnimEnabled        = useFacilitiesStore((s) => s.setAnimEnabled);
 
   const [openCategories, setOpenCategories] = useState(() =>
     Object.fromEntries(FACILITY_CATEGORIES.map((c) => [c.id, true]))
@@ -100,6 +102,13 @@ export default function FacilityPalette() {
     <aside style={styles.sidebar}>
       <div style={styles.header}>
         <span>시설 팔레트</span>
+        <button
+          style={{ ...styles.phaseToggle, ...(animEnabled ? styles.phaseToggleOn : {}) }}
+          onClick={() => setAnimEnabled(!animEnabled)}
+          title="애니메이션 ON/OFF"
+        >
+          애니 {animEnabled ? 'ON' : 'OFF'}
+        </button>
         <button
           style={{ ...styles.phaseToggle, ...(view2_5d ? styles.phaseToggleOn : {}) }}
           onClick={() => setView2_5d(!view2_5d)}

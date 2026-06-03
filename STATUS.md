@@ -6,6 +6,11 @@
 
 ## Now
 
+v0.3.1 완료 (2026-06-03) — 가벼운 시각 애니메이션(배치 페이드인+선택 펄스, Tween).
+- Phaser Tween 진행값을 render에 전달, onUpdate에서 재그리기 — Tween 종료 시 자동 정지(상시 매프레임 X)
+- 페이드인 250ms(Quad.easeOut) / 선택 펄스 yoyo 무한(Sine.easeInOut), animEnabled 토글 ON/OFF
+- hitTest·export 무회귀(시각만), 성능: 유휴 시 pulseTween=null + facAnim={} 확인
+
 v0.3.0 완료 (2026-06-03) — 의사 2.5D 뷰 (직교 유지 + 높이감, 토글).
 - FacilityRenderer에 view2_5d 분기: 윗면+정면 높이 블록, row+col 기준 그리기 정렬
 - hitTest는 바닥면 기준 유지 → 클릭 판정 무회귀(시각만 입체), 브라우저 검증 ✅
@@ -241,7 +246,7 @@ pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pr
 
 ## Next
 
-1. v0.3.1: AI 생성 픽셀 아트 스프라이트 또는 v0.3.2 애니메이션 (사용자 결정)
+1. v0.3.2: AI 픽셀 아트 스프라이트 또는 연기·컨베이어 애니메이션 (사용자 결정)
 
 ## Backlog
 

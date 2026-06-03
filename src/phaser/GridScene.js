@@ -124,6 +124,9 @@ export class GridScene extends Phaser.Scene {
                               lastW: 0, lastH: 0, lastCol: 0, lastRow: 0,
                               startScale: 1, startDist: 0, centerX: 0, centerY: 0 };
     this._resizeHandleGfx = null;
+    this._facAnim    = {};    // 페이드인 진행값 { [facId]: 0~1 }
+    this._pulse      = 0;    // 선택 펄스 진행값 0~1
+    this._pulseTween = null; // 펄스 Tween (active 중일 때만 존재)
   }
 
   create() {
@@ -204,16 +207,47 @@ export class GridScene extends Phaser.Scene {
 
     // ── 시설 store 구독 ──────────────────────────────────────
     let prevSiteSize = useFacilitiesStore.getState().siteSize;
+    let prevFacIds   = new Set(useFacilitiesStore.getState().facilities.map(f => f.id));
     this._storeUnsub = useFacilitiesStore.subscribe((state) => {
       if (this._renderer) {
         const { siteSize } = state;
         const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
         const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+
+        // 새 시설 감지 → 페이드인 Tween (도는 동안만 onUpdate 발화 — 상시 매프레임 X)
+        const newIds = state.facilities.filter(f => !prevFacIds.has(f.id)).map(f => f.id);
+        prevFacIds = new Set(state.facilities.map(f => f.id));
+        if (state.animEnabled && newIds.length) {
+          newIds.forEach(id => {
+            this._facAnim[id] = 0;
+            this.tweens.add({
+              targets: this._facAnim, [id]: 1,
+              duration: 250, ease: 'Quad.easeOut',
+              onUpdate: () => this._rerenderFacilities(),
+              onComplete: () => { delete this._facAnim[id]; this._rerenderFacilities(); },
+            });
+          });
+        }
+
+        // 선택 펄스 관리
+        if (state.animEnabled && state.selectedIds.length > 0 && !this._pulseTween) {
+          this._pulse = 0;
+          this._pulseTween = this.tweens.add({
+            targets: this, _pulse: 1,
+            duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            onUpdate: () => this._rerenderFacilities(),
+          });
+        }
+        if ((!state.selectedIds.length || !state.animEnabled) && this._pulseTween) {
+          this._pulseTween.stop(); this._pulseTween = null; this._pulse = 0;
+        }
+
         this._renderer.render(
           state.facilities, state.selectedIds,
           cellPx, siteCols, siteRows,
           state.phaseViewEnabled,
           state.view2_5d,
+          this._facAnim, this._pulse,
         );
         this._drawResizeHandles(state.facilities, state.selectedIds, cellPx);
       }
@@ -278,6 +312,7 @@ export class GridScene extends Phaser.Scene {
       cellPx, initSiteCols, initSiteRows,
       init.phaseViewEnabled,
       init.view2_5d,
+      {}, 0,
     );
 
     const tInit = useTerrainStore.getState();
@@ -720,10 +755,25 @@ export class GridScene extends Phaser.Scene {
       if (this._importBndGfx)    this._importBndGfx.destroy();
       if (this._resizeHandleGfx) this._resizeHandleGfx.destroy();
       if (this._bgImageObj)      this._bgImageObj.destroy();
+      if (this._pulseTween)      { this._pulseTween.stop(); this._pulseTween = null; }
     });
   }
 
   // ── 헬퍼 ─────────────────────────────────────────────────────────────
+
+  /** Tween onUpdate에서 호출 — 현재 store 상태 + 애니 진행값으로 시설 재그리기 */
+  _rerenderFacilities() {
+    if (!this._renderer) return;
+    const s = useFacilitiesStore.getState();
+    const siteCols = s.siteSize.widthM  / GRID_CONFIG.cellSize;
+    const siteRows = s.siteSize.heightM / GRID_CONFIG.cellSize;
+    this._renderer.render(
+      s.facilities, s.selectedIds, this._cellPx, siteCols, siteRows,
+      s.phaseViewEnabled, s.view2_5d,
+      this._facAnim, this._pulse,
+    );
+    this._drawResizeHandles(s.facilities, s.selectedIds, this._cellPx);
+  }
 
   _drawBoundary() {
     const { siteSize } = useFacilitiesStore.getState();

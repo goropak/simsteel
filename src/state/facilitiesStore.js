@@ -106,6 +106,9 @@ export const useFacilitiesStore = create((set, get) => ({
   view2_5d: false,
   setView2_5d: (v) => set({ view2_5d: v }),
 
+  animEnabled: true,
+  setAnimEnabled: (v) => set({ animEnabled: v }),
+
   // ── 배치 시설 CRUD ───────────────────────────────────────────────────
   addFacility: (facility) =>
     set((state) => ({ facilities: [...state.facilities, facility] })),

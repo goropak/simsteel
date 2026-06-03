@@ -26,7 +26,7 @@ export class FacilityRenderer {
    * @param {number}   siteCols    — 부지 최대 열 수 (경계 밖 감지용)
    * @param {number}   siteRows    — 부지 최대 행 수
    */
-  render(facilities, selectedIds, cellPx, siteCols = 9999, siteRows = 9999, phaseViewEnabled = false, view2_5d = false) {
+  render(facilities, selectedIds, cellPx, siteCols = 9999, siteRows = 9999, phaseViewEnabled = false, view2_5d = false, facAnim = {}, pulse = 0) {
     const g   = this.graphics;
     const cam = this.scene.cameras.main;
     const zoom = cam ? cam.zoom : 1;
@@ -61,6 +61,9 @@ export class FacilityRenderer {
       const colorHex = isConfirmed ? (fac.color || '#6b9fff') : '#888888';
       const colorInt = parseInt(colorHex.replace('#', ''), 16);
 
+      // 페이드인 alpha 배율 (0~1, 애니 없으면 1.0)
+      const a = facAnim[fac.id] !== undefined ? facAnim[fac.id] : 1;
+
       // 2.5D 높이 오프셋 (평면일 때 lift=0 → yDraw === y, 기존 경로와 동일)
       const lift  = view2_5d ? Math.min(w, h) * 0.4 : 0;
       const yDraw = y - lift;
@@ -71,27 +74,27 @@ export class FacilityRenderer {
         const gCh = Math.floor(((colorInt >>  8) & 0xff) * 0.6);
         const bCh = Math.floor(( colorInt        & 0xff) * 0.6);
         const darkerInt = (rCh << 16) | (gCh << 8) | bCh;
-        g.fillStyle(darkerInt, isSelected ? 0.7 : 0.55);
+        g.fillStyle(darkerInt, (isSelected ? 0.7 : 0.55) * a);
         g.fillRect(x, y + h - lift, w, lift);
       }
 
       // ── 윗면(평면일 때는 전체면) 채우기
-      g.fillStyle(colorInt, isSelected ? 0.55 : 0.35);
+      g.fillStyle(colorInt, (isSelected ? 0.55 : 0.35) * a);
       g.fillRect(x, yDraw, w, h);
 
       // confirmed: false → 회색 해치 오버레이
       if (!isConfirmed) {
-        g.fillStyle(0xaaaaaa, 0.12);
+        g.fillStyle(0xaaaaaa, 0.12 * a);
         g.fillRect(x, yDraw, w, h);
       }
 
-      // ── 외곽선 (윗면 기준)
+      // ── 외곽선 (윗면 기준, 선택 시 펄스)
       if (isOutOfBounds) {
-        g.lineStyle(2, 0xff3333, 1.0);
+        g.lineStyle(2, 0xff3333, a);
       } else if (isSelected) {
-        g.lineStyle(2, 0xffff00, 1.0);
+        g.lineStyle(2, 0xffff00, (0.5 + 0.5 * pulse) * a);
       } else {
-        g.lineStyle(1, colorInt, 1.0);
+        g.lineStyle(1, colorInt, a);
       }
       g.strokeRect(x, yDraw, w, h);
 
@@ -141,7 +144,7 @@ export class FacilityRenderer {
 
       // confidence 시각화
       if (fac.confidence === '낮음') {
-        g.lineStyle(1, 0xff9900, 0.9);
+        g.lineStyle(1, 0xff9900, 0.9 * a);
         g.strokeRect(x + 2, yDraw + 2, w - 4, h - 4);
       }
 
@@ -149,9 +152,9 @@ export class FacilityRenderer {
       if (phaseViewEnabled && fac.phase && fac.phase > 1) {
         const phaseColor = PHASE_COLORS[fac.phase];
         if (phaseColor != null) {
-          g.fillStyle(phaseColor, 0.28);
+          g.fillStyle(phaseColor, 0.28 * a);
           g.fillRect(x, yDraw, w, h);
-          g.fillStyle(phaseColor, 0.8);
+          g.fillStyle(phaseColor, 0.8 * a);
           g.fillRect(x + w - 8, yDraw, 8, 8);
         }
       }
