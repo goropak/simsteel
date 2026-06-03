@@ -6,6 +6,12 @@
 
 ## Now
 
+v0.2.8.8 완료 (2026-06-03) — 배경 트레이싱 scale/offset 상태 + _applyBgTransform 통합.
+- bgScale, bgOffsetX, bgOffsetY 필드·setter 추가 (clearBgImage 리셋 포함)
+- _applyBgTransform() 헬퍼 — 사이트 크기×bgScale + offset 반영, setDisplaySize 중복 제거
+- store 구독부에 scale/offset 변화 시 _applyBgTransform 호출 분기 추가
+- 브라우저 검증: setBgScale(1.5) → 1.5× 확대 ✅ / setBgOffset(50,50) → 이동 ✅ / clearBgImage → 전체 리셋 ✅
+
 v0.2.8.7 완료 (2026-06-03) — 배경 트레이싱 (이미지 오버레이 + 투명도 조절).
 - 로컬 파일 선택 UI (File API → FileReader → base64 → Phaser texture, 외부 전송 0)
 - 배경 이미지 depth 0.5 (siteFill(0) 위, grid(1) 아래) — 월드 좌표 배치
@@ -205,7 +211,7 @@ pre-commit hook 설치 완료 (2026-06-02) — 헌법 제0조 봉인. scripts/pr
 
 ## Next
 
-1. 백로그 중 우선 항목 선택 (사용자 결정)
+1. v0.2.8.9: 배경 트레이싱 크기/위치 조절 핸들 인터랙션 (UI 슬라이더 또는 드래그 핸들)
 
 ## Backlog
 

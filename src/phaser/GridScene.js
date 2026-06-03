@@ -117,9 +117,12 @@ export class GridScene extends Phaser.Scene {
     this._bgImageObj    = null;  // 배경 트레이싱 이미지 (depth 0.5)
     this._bgVersion     = 0;     // 비동기 texture load 버전 카운터
 
-    this._resizeDrag      = { active: false, handle: null, facId: null,
+    this._bgSelected      = false;
+    this._bgDrag          = { active: false, startWX: 0, startWY: 0, startOffX: 0, startOffY: 0 };
+    this._resizeDrag      = { active: false, handle: null, facId: null, target: 'fac',
                               anchorCol: 0, anchorRow: 0,
-                              lastW: 0, lastH: 0, lastCol: 0, lastRow: 0 };
+                              lastW: 0, lastH: 0, lastCol: 0, lastRow: 0,
+                              startScale: 1, startDist: 0, centerX: 0, centerY: 0 };
     this._resizeHandleGfx = null;
   }
 
@@ -256,6 +259,10 @@ export class GridScene extends Phaser.Scene {
         this._bgImageObj.setAlpha(bgOpacity);
         if (bgScale !== prevBgScale || bgOffsetX !== prevBgOffsetX || bgOffsetY !== prevBgOffsetY) {
           this._applyBgTransform();
+          if (this._bgSelected) {
+            const fState = useFacilitiesStore.getState();
+            this._drawResizeHandles(fState.facilities, fState.selectedIds, this._cellPx);
+          }
         }
       }
       prevBgScale = bgScale; prevBgOffsetX = bgOffsetX; prevBgOffsetY = bgOffsetY;
@@ -360,9 +367,33 @@ export class GridScene extends Phaser.Scene {
         }
       }
 
+      // 배경 핸들 hitTest (배경 선택 상태일 때, 시설 hitTest 전)
+      if (!isMulti && this._bgSelected && this._bgImageObj) {
+        const bgHandle = this._hitTestBgHandle(worldX, worldY);
+        if (bgHandle) {
+          const rd = this._resizeDrag;
+          rd.active = true;
+          rd.target = 'bg';
+          rd.handle = bgHandle;
+          const { bgScale } = useBgImageStore.getState();
+          const obj = this._bgImageObj;
+          rd.startScale = bgScale;
+          rd.centerX = obj.x + obj.displayWidth  / 2;
+          rd.centerY = obj.y + obj.displayHeight / 2;
+          const dx = worldX - rd.centerX;
+          const dy = worldY - rd.centerY;
+          rd.startDist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
+                            bl: 'nesw-resize', br: 'nwse-resize' };
+          this.input.setDefaultCursor(CURSORS[bgHandle]);
+          return;
+        }
+      }
+
       // 시설 우선 hitTest
       const hitFacId = this._renderer.hitTest(worldX, worldY, store.facilities, cellPx);
       if (hitFacId) {
+        this._bgSelected = false;
         tStore.clearTerrainSelection();
         store.selectFacility(hitFacId, isMulti);
         if (!isMulti) {
@@ -385,6 +416,7 @@ export class GridScene extends Phaser.Scene {
       // 지형 hitTest (시설이 없을 때만)
       const hitTerrId = this._terrainRend.hitTest(worldX, worldY, tStore.terrains, cellPx);
       if (hitTerrId) {
+        this._bgSelected = false;
         store.clearSelection();
         tStore.selectTerrain(hitTerrId);
         // 지형 드래그 준비 (시설과 동일 패턴)
@@ -403,8 +435,27 @@ export class GridScene extends Phaser.Scene {
         return;
       }
 
+      // 배경 이미지 body 클릭 → 배경 선택 + 이동 준비
+      if (!isMulti && this._bgImageObj && this._isInsideBgImage(worldX, worldY)) {
+        this._bgSelected = false;
+        store.clearSelection();
+        tStore.clearTerrainSelection();
+        this._bgSelected = true;
+        const fState = useFacilitiesStore.getState();
+        this._drawResizeHandles(fState.facilities, fState.selectedIds, cellPx);
+        const bgState = useBgImageStore.getState();
+        this._bgDrag.active    = true;
+        this._bgDrag.startWX   = worldX;
+        this._bgDrag.startWY   = worldY;
+        this._bgDrag.startOffX = bgState.bgOffsetX;
+        this._bgDrag.startOffY = bgState.bgOffsetY;
+        this.input.setDefaultCursor('move');
+        return;
+      }
+
       // 빈 공간 — 선택 해제 + 팬 시작
       if (!isMulti) {
+        this._bgSelected = false;
         store.clearSelection();
         tStore.clearTerrainSelection();
       }
@@ -416,6 +467,8 @@ export class GridScene extends Phaser.Scene {
       this._facDrag.active     = false;
       this._terrainDrag.active = false;
       this._resizeDrag.active  = false;
+      this._resizeDrag.target  = 'fac';
+      this._bgDrag.active      = false;
       const paletteTypeId = useFacilitiesStore.getState().paletteSelectedTypeId;
       this.input.setDefaultCursor(paletteTypeId ? 'crosshair' : 'default');
     });
@@ -424,8 +477,28 @@ export class GridScene extends Phaser.Scene {
     this.input.on('pointermove', (pointer) => {
       const cam = this.cameras.main;
 
-      // 리사이즈 드래그 (facDrag보다 우선)
-      if (this._resizeDrag.active) {
+      // 배경 scale 드래그
+      if (this._resizeDrag.active && this._resizeDrag.target === 'bg') {
+        const rd = this._resizeDrag;
+        const dx = pointer.worldX - rd.centerX;
+        const dy = pointer.worldY - rd.centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const newScale = Phaser.Math.Clamp(rd.startScale * (dist / rd.startDist), 0.1, 5.0);
+        useBgImageStore.getState().setBgScale(newScale);
+      }
+
+      // 배경 이동 드래그
+      if (this._bgDrag.active) {
+        const dx = pointer.worldX - this._bgDrag.startWX;
+        const dy = pointer.worldY - this._bgDrag.startWY;
+        useBgImageStore.getState().setBgOffset(
+          this._bgDrag.startOffX + dx,
+          this._bgDrag.startOffY + dy,
+        );
+      }
+
+      // 시설 리사이즈 드래그 (facDrag보다 우선)
+      if (this._resizeDrag.active && this._resizeDrag.target === 'fac') {
         const rd    = this._resizeDrag;
         const store = useFacilitiesStore.getState();
         const { siteSize } = store;
@@ -542,7 +615,7 @@ export class GridScene extends Phaser.Scene {
 
       // 핸들 호버 커서 (드래그 없을 때)
       if (!this._drag.active && !this._facDrag.active &&
-          !this._terrainDrag.active && !this._resizeDrag.active) {
+          !this._terrainDrag.active && !this._resizeDrag.active && !this._bgDrag.active) {
         const hState = useFacilitiesStore.getState();
         if (!hState.paletteSelectedTypeId && hState.selectedIds.length === 1) {
           const sf = hState.facilities.find((f) => f.id === hState.selectedIds[0]);
@@ -551,6 +624,16 @@ export class GridScene extends Phaser.Scene {
             const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
                               bl: 'nesw-resize', br: 'nwse-resize' };
             this.input.setDefaultCursor(hh ? CURSORS[hh] : 'default');
+          }
+        }
+        if (this._bgSelected && this._bgImageObj) {
+          const bgH = this._hitTestBgHandle(pointer.worldX, pointer.worldY);
+          if (bgH) {
+            const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
+                              bl: 'nesw-resize', br: 'nwse-resize' };
+            this.input.setDefaultCursor(CURSORS[bgH]);
+          } else if (this._isInsideBgImage(pointer.worldX, pointer.worldY)) {
+            this.input.setDefaultCursor('move');
           }
         }
       }
@@ -564,9 +647,14 @@ export class GridScene extends Phaser.Scene {
 
     // ── 키보드 ────────────────────────────────────────────────
 
-    // ESC: 배치 모드 해제
+    // ESC: 배치 모드 해제 + 배경 선택 해제
     this.input.keyboard.on('keydown-ESC', () => {
       useFacilitiesStore.getState().setPaletteSelection(null);
+      if (this._bgSelected) {
+        this._bgSelected = false;
+        const fState = useFacilitiesStore.getState();
+        this._drawResizeHandles(fState.facilities, fState.selectedIds, cellPx);
+      }
       this.input.setDefaultCursor('default');
     });
 
@@ -788,7 +876,13 @@ export class GridScene extends Phaser.Scene {
 
   /** 배경 이미지 제거 */
   _removeBgImage() {
-    if (this._bgImageObj) { this._bgImageObj.destroy(); this._bgImageObj = null; }
+    this._bgSelected = false;
+    if (this._bgImageObj) {
+      this._bgImageObj.setVisible(false);
+      const obj = this._bgImageObj;
+      this._bgImageObj = null;  // 참조 먼저 끊기 — _applyBgTransform 가드가 즉시 빠져나감
+      obj.destroy();
+    }
     const key = '__bg_trace__';
     if (this.textures.exists(key)) this.textures.remove(key);
   }
@@ -865,17 +959,34 @@ export class GridScene extends Phaser.Scene {
     const g = this._resizeHandleGfx;
     if (!g) return;
     g.clear();
-    if (selectedIds.length !== 1) return;
-    const fac = facilities.find((f) => f.id === selectedIds[0]);
-    if (!fac) return;
-    const hp = this._handlePx();
-    const centers = this._getHandleCenters(fac, cellPx);
-    Object.values(centers).forEach(({ x, y }) => {
-      g.fillStyle(0xffffff, 0.92);
-      g.fillRect(x - hp / 2, y - hp / 2, hp, hp);
-      g.lineStyle(1.5, 0x222244, 1.0);
-      g.strokeRect(x - hp / 2, y - hp / 2, hp, hp);
-    });
+
+    if (selectedIds.length === 1) {
+      const fac = facilities.find((f) => f.id === selectedIds[0]);
+      if (fac) {
+        const hp = this._handlePx();
+        const centers = this._getHandleCenters(fac, cellPx);
+        Object.values(centers).forEach(({ x, y }) => {
+          g.fillStyle(0xffffff, 0.92);
+          g.fillRect(x - hp / 2, y - hp / 2, hp, hp);
+          g.lineStyle(1.5, 0x222244, 1.0);
+          g.strokeRect(x - hp / 2, y - hp / 2, hp, hp);
+        });
+      }
+    }
+
+    if (this._bgSelected && this._bgImageObj) {
+      const hp = this._handlePx();
+      const obj = this._bgImageObj;
+      const centers = this._getBgHandleCenters();
+      g.lineStyle(1.5, 0x00ccff, 0.6);
+      g.strokeRect(obj.x, obj.y, obj.displayWidth, obj.displayHeight);
+      Object.values(centers).forEach(({ x, y }) => {
+        g.fillStyle(0x00ccff, 0.92);
+        g.fillRect(x - hp / 2, y - hp / 2, hp, hp);
+        g.lineStyle(1.5, 0x004488, 1.0);
+        g.strokeRect(x - hp / 2, y - hp / 2, hp, hp);
+      });
+    }
   }
 
   /**
@@ -891,6 +1002,40 @@ export class GridScene extends Phaser.Scene {
           worldY >= y - hp / 2 && worldY <= y + hp / 2) return key;
     }
     return null;
+  }
+
+  /** 배경 이미지 4코너의 월드 좌표 반환 */
+  _getBgHandleCenters() {
+    const obj = this._bgImageObj;
+    if (!obj) return null;
+    const x = obj.x, y = obj.y;
+    const w = obj.displayWidth, h = obj.displayHeight;
+    return {
+      tl: { x,       y       },
+      tr: { x: x + w, y       },
+      bl: { x,       y: y + h },
+      br: { x: x + w, y: y + h },
+    };
+  }
+
+  /** 배경 선택 상태에서 코너 핸들 hitTest */
+  _hitTestBgHandle(worldX, worldY) {
+    if (!this._bgImageObj || !this._bgSelected) return null;
+    const hp = this._handlePx();
+    const centers = this._getBgHandleCenters();
+    for (const [key, { x, y }] of Object.entries(centers)) {
+      if (worldX >= x - hp / 2 && worldX <= x + hp / 2 &&
+          worldY >= y - hp / 2 && worldY <= y + hp / 2) return key;
+    }
+    return null;
+  }
+
+  /** 월드 좌표가 배경 이미지 영역 안인지 확인 */
+  _isInsideBgImage(worldX, worldY) {
+    const obj = this._bgImageObj;
+    if (!obj) return false;
+    return worldX >= obj.x && worldX <= obj.x + obj.displayWidth &&
+           worldY >= obj.y && worldY <= obj.y + obj.displayHeight;
   }
 
   /**
