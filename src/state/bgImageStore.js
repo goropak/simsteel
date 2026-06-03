@@ -15,9 +15,17 @@ export const useBgImageStore = create((set) => ({
   bgOpacity: 0.7,
   /** 격자 불투명도 0.0~1.0 (배경 모드에서 낮추면 배경이 더 잘 보임) */
   gridOpacity: 1.0,
+  /** 배경 균일 배율 (사이트 크기 대비) */
+  bgScale: 1.0,
+  /** 배경 가로 오프셋(px, 월드 좌표) */
+  bgOffsetX: 0,
+  /** 배경 세로 오프셋(px, 월드 좌표) */
+  bgOffsetY: 0,
 
   setBgImage:     (dataUrl) => set({ bgImageDataUrl: dataUrl }),
-  clearBgImage:   ()        => set({ bgImageDataUrl: null }),
+  clearBgImage:   ()        => set({ bgImageDataUrl: null, bgScale: 1.0, bgOffsetX: 0, bgOffsetY: 0 }),
   setBgOpacity:   (v) => set({ bgOpacity:   Math.max(0, Math.min(1, v)) }),
   setGridOpacity: (v) => set({ gridOpacity: Math.max(0, Math.min(1, v)) }),
+  setBgScale:     (v) => set({ bgScale: v }),
+  setBgOffset:    (x, y) => set({ bgOffsetX: x, bgOffsetY: y }),
 }));

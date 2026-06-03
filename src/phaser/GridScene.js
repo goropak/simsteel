@@ -239,8 +239,9 @@ export class GridScene extends Phaser.Scene {
     // 배경 트레이싱 store 구독 (v0.2.8.5)
     // prevBgDataUrl 클로저로 URL 변경 여부를 추적 — 슬라이더 조작 시 texture 재로드 방지
     let prevBgDataUrl = null;
+    let prevBgScale = 1.0, prevBgOffsetX = 0, prevBgOffsetY = 0;
     this._bgUnsub = useBgImageStore.subscribe((state) => {
-      const { bgImageDataUrl, bgOpacity, gridOpacity } = state;
+      const { bgImageDataUrl, bgOpacity, gridOpacity, bgScale, bgOffsetX, bgOffsetY } = state;
 
       if (this._gridGfx) this._gridGfx.setAlpha(gridOpacity);
 
@@ -253,7 +254,11 @@ export class GridScene extends Phaser.Scene {
         }
       } else if (this._bgImageObj) {
         this._bgImageObj.setAlpha(bgOpacity);
+        if (bgScale !== prevBgScale || bgOffsetX !== prevBgOffsetX || bgOffsetY !== prevBgOffsetY) {
+          this._applyBgTransform();
+        }
       }
+      prevBgScale = bgScale; prevBgOffsetX = bgOffsetX; prevBgOffsetY = bgOffsetY;
     });
 
     // 초기 렌더
@@ -772,14 +777,11 @@ export class GridScene extends Phaser.Scene {
 
     this.textures.once('addtexture-' + key, () => {
       if (version !== this._bgVersion) return; // 더 새 로드로 대체됨
-      const { siteSize } = useFacilitiesStore.getState();
-      const siteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
-      const siteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
       this._bgImageObj = this.add.image(0, 0, key)
         .setOrigin(0, 0)
-        .setDisplaySize(siteW, siteH)
         .setDepth(0.5)
         .setAlpha(opacity);
+      this._applyBgTransform();
     });
     this.textures.addBase64(key, dataUrl);
   }
@@ -791,13 +793,20 @@ export class GridScene extends Phaser.Scene {
     if (this.textures.exists(key)) this.textures.remove(key);
   }
 
-  /** 부지 크기 변경 시 배경 이미지 displaySize 갱신 */
-  _updateBgImageSize() {
+  /** 배경 표시 크기·위치 계산 (사이트 크기 × bgScale, offset 반영) */
+  _applyBgTransform() {
     if (!this._bgImageObj) return;
     const { siteSize } = useFacilitiesStore.getState();
+    const { bgScale, bgOffsetX, bgOffsetY } = useBgImageStore.getState();
     const siteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
     const siteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
-    this._bgImageObj.setDisplaySize(siteW, siteH);
+    this._bgImageObj.setDisplaySize(siteW * bgScale, siteH * bgScale);
+    this._bgImageObj.setPosition(bgOffsetX, bgOffsetY);
+  }
+
+  /** 부지 크기 변경 시 배경 이미지 displaySize 갱신 */
+  _updateBgImageSize() {
+    this._applyBgTransform();
   }
 
   /**
