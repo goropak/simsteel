@@ -103,6 +103,9 @@ export const useFacilitiesStore = create((set, get) => ({
   phaseViewEnabled: false,
   togglePhaseView: () => set((s) => ({ phaseViewEnabled: !s.phaseViewEnabled })),
 
+  view2_5d: false,
+  setView2_5d: (v) => set({ view2_5d: v }),
+
   // ── 배치 시설 CRUD ───────────────────────────────────────────────────
   addFacility: (facility) =>
     set((state) => ({ facilities: [...state.facilities, facility] })),

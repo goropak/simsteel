@@ -213,6 +213,7 @@ export class GridScene extends Phaser.Scene {
           state.facilities, state.selectedIds,
           cellPx, siteCols, siteRows,
           state.phaseViewEnabled,
+          state.view2_5d,
         );
         this._drawResizeHandles(state.facilities, state.selectedIds, cellPx);
       }
@@ -276,6 +277,7 @@ export class GridScene extends Phaser.Scene {
       init.facilities, init.selectedIds,
       cellPx, initSiteCols, initSiteRows,
       init.phaseViewEnabled,
+      init.view2_5d,
     );
 
     const tInit = useTerrainStore.getState();

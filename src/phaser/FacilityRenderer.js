@@ -26,7 +26,7 @@ export class FacilityRenderer {
    * @param {number}   siteCols    — 부지 최대 열 수 (경계 밖 감지용)
    * @param {number}   siteRows    — 부지 최대 행 수
    */
-  render(facilities, selectedIds, cellPx, siteCols = 9999, siteRows = 9999, phaseViewEnabled = false) {
+  render(facilities, selectedIds, cellPx, siteCols = 9999, siteRows = 9999, phaseViewEnabled = false, view2_5d = false) {
     const g   = this.graphics;
     const cam = this.scene.cameras.main;
     const zoom = cam ? cam.zoom : 1;
@@ -39,7 +39,13 @@ export class FacilityRenderer {
 
     const selectedSet = new Set(selectedIds);
 
-    facilities.forEach((fac, i) => {
+    // 2.5D 그리기 순서 정렬 (그리기용 사본만 — hitTest 원본 배열은 절대 정렬 금지)
+    const drawList = view2_5d
+      ? [...facilities].sort((a, b) =>
+          (a.position.row + a.position.col) - (b.position.row + b.position.col))
+      : facilities;
+
+    drawList.forEach((fac, i) => {
       const x = fac.position.col * cellPx;
       const y = fac.position.row * cellPx;
       const w = fac.size.width  * cellPx;
@@ -52,36 +58,47 @@ export class FacilityRenderer {
         fac.position.row + fac.size.height > siteRows;
 
       // ── 색상 결정
-      // confirmed: false → 회색으로 오버라이드
       const colorHex = isConfirmed ? (fac.color || '#6b9fff') : '#888888';
       const colorInt = parseInt(colorHex.replace('#', ''), 16);
 
-      // ── 채우기
-      g.fillStyle(colorInt, isSelected ? 0.55 : 0.35);
-      g.fillRect(x, y, w, h);
+      // 2.5D 높이 오프셋 (평면일 때 lift=0 → yDraw === y, 기존 경로와 동일)
+      const lift  = view2_5d ? Math.min(w, h) * 0.4 : 0;
+      const yDraw = y - lift;
 
-      // confirmed: false → 회색 해치 오버레이 (반투명)
-      if (!isConfirmed) {
-        g.fillStyle(0xaaaaaa, 0.12);
-        g.fillRect(x, y, w, h);
+      // ── 정면(어두운 톤) — 2.5D 전용
+      if (view2_5d) {
+        const rCh = Math.floor(((colorInt >> 16) & 0xff) * 0.6);
+        const gCh = Math.floor(((colorInt >>  8) & 0xff) * 0.6);
+        const bCh = Math.floor(( colorInt        & 0xff) * 0.6);
+        const darkerInt = (rCh << 16) | (gCh << 8) | bCh;
+        g.fillStyle(darkerInt, isSelected ? 0.7 : 0.55);
+        g.fillRect(x, y + h - lift, w, lift);
       }
 
-      // ── 외곽선
+      // ── 윗면(평면일 때는 전체면) 채우기
+      g.fillStyle(colorInt, isSelected ? 0.55 : 0.35);
+      g.fillRect(x, yDraw, w, h);
+
+      // confirmed: false → 회색 해치 오버레이
+      if (!isConfirmed) {
+        g.fillStyle(0xaaaaaa, 0.12);
+        g.fillRect(x, yDraw, w, h);
+      }
+
+      // ── 외곽선 (윗면 기준)
       if (isOutOfBounds) {
-        // 빨간 테두리 경고 (부지 경계 밖)
         g.lineStyle(2, 0xff3333, 1.0);
       } else if (isSelected) {
         g.lineStyle(2, 0xffff00, 1.0);
       } else {
         g.lineStyle(1, colorInt, 1.0);
       }
-      g.strokeRect(x, y, w, h);
+      g.strokeRect(x, yDraw, w, h);
 
-      // ── 약어 라벨 (줌 > 0.25 이상에서 표시)
+      // ── 라벨 (줌 감응, 윗면 중앙 기준)
       const showAbbrev = zoom >= 0.25;
       const showName   = zoom >= 0.8;
 
-      // 약어 라벨 풀 (resolution=4 → 최대줌 4x에서도 선명)
       const abbrevText = fac.abbrev || fac.name.slice(0, 4);
       if (i >= this._abbrevLabels.length) {
         this._abbrevLabels.push(
@@ -92,18 +109,16 @@ export class FacilityRenderer {
         );
       }
       const abbrevLabel = this._abbrevLabels[i];
-      // 폰트 크기: 시설 크기에 비례, 8px ~ 18px
       const minDim = Math.min(w, h);
       const fontSize = Math.max(8, Math.min(18, Math.floor(minDim / 5)));
       abbrevLabel.setStyle({ fontSize: `${fontSize}px`, color: '#3D2E1F', fontFamily: 'Courier New, monospace' });
       abbrevLabel.setText(abbrevText);
       abbrevLabel.setPosition(
         x + w / 2 - abbrevLabel.width  / 2,
-        y + h / 2 - abbrevLabel.height / 2,
+        yDraw + h / 2 - abbrevLabel.height / 2,
       );
       abbrevLabel.setVisible(showAbbrev);
 
-      // 시설명 라벨 (줌 > 0.8에서만 표시, 약어 아래) — resolution=4
       if (i >= this._nameLabels.length) {
         this._nameLabels.push(
           this.scene.add.text(0, 0, '', {
@@ -117,30 +132,27 @@ export class FacilityRenderer {
       }
       const nameLabel = this._nameLabels[i];
       nameLabel.setText(fac.name);
-      // 약어 아래 배치
-      const abbrevBottom = y + h / 2 + abbrevLabel.height / 2 + 2;
+      const abbrevBottom = yDraw + h / 2 + abbrevLabel.height / 2 + 2;
       nameLabel.setPosition(
         x + w / 2 - nameLabel.width / 2,
         abbrevBottom,
       );
-      nameLabel.setVisible(showName && abbrevBottom + nameLabel.height < y + h);
+      nameLabel.setVisible(showName && abbrevBottom + nameLabel.height < yDraw + h);
 
-      // confidence 시각화 (import 시설 전용 — v0.2.8)
-      // "낮음" → 내부 주황 테두리로 주의 표시
+      // confidence 시각화
       if (fac.confidence === '낮음') {
         g.lineStyle(1, 0xff9900, 0.9);
-        g.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        g.strokeRect(x + 2, yDraw + 2, w - 4, h - 4);
       }
 
-      // Phase 오버레이 (phaseViewEnabled=true, Phase 2/3만)
+      // Phase 오버레이 (윗면 기준)
       if (phaseViewEnabled && fac.phase && fac.phase > 1) {
         const phaseColor = PHASE_COLORS[fac.phase];
         if (phaseColor != null) {
           g.fillStyle(phaseColor, 0.28);
-          g.fillRect(x, y, w, h);
-          // Phase 번호 표시 (우상단 작은 배지)
+          g.fillRect(x, yDraw, w, h);
           g.fillStyle(phaseColor, 0.8);
-          g.fillRect(x + w - 8, y, 8, 8);
+          g.fillRect(x + w - 8, yDraw, 8, 8);
         }
       }
     });

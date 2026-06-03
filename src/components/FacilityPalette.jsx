@@ -29,6 +29,8 @@ export default function FacilityPalette() {
   const deleteCustomFacility  = useFacilitiesStore((s) => s.deleteCustomFacility);
   const phaseViewEnabled      = useFacilitiesStore((s) => s.phaseViewEnabled);
   const togglePhaseView       = useFacilitiesStore((s) => s.togglePhaseView);
+  const view2_5d              = useFacilitiesStore((s) => s.view2_5d);
+  const setView2_5d           = useFacilitiesStore((s) => s.setView2_5d);
 
   const [openCategories, setOpenCategories] = useState(() =>
     Object.fromEntries(FACILITY_CATEGORIES.map((c) => [c.id, true]))
@@ -98,6 +100,13 @@ export default function FacilityPalette() {
     <aside style={styles.sidebar}>
       <div style={styles.header}>
         <span>시설 팔레트</span>
+        <button
+          style={{ ...styles.phaseToggle, ...(view2_5d ? styles.phaseToggleOn : {}) }}
+          onClick={() => setView2_5d(!view2_5d)}
+          title="2.5D 뷰 ON/OFF"
+        >
+          {view2_5d ? '평면 뷰' : '2.5D 뷰'}
+        </button>
         <button
           style={{ ...styles.phaseToggle, ...(phaseViewEnabled ? styles.phaseToggleOn : {}) }}
           onClick={togglePhaseView}
