@@ -125,7 +125,7 @@ export class GridScene extends Phaser.Scene {
     this._resizeDrag      = { active: false, handle: null, facId: null, target: 'fac',
                               anchorCol: 0, anchorRow: 0,
                               lastW: 0, lastH: 0, lastCol: 0, lastRow: 0,
-                              startScale: 1, startDist: 0, centerX: 0, centerY: 0 };
+                              bgAnchorX: 0, bgAnchorY: 0, bgSiteW: 0, bgSiteH: 0 };
     this._resizeHandleGfx = null;
     this._facAnim    = {};    // 페이드인 진행값 { [facId]: 0~1 }
     this._pulse      = 0;    // 선택 펄스 진행값 0~1
@@ -280,11 +280,18 @@ export class GridScene extends Phaser.Scene {
     // 배경 트레이싱 store 구독 (v0.2.8.5)
     // prevBgDataUrl 클로저로 URL 변경 여부를 추적 — 슬라이더 조작 시 texture 재로드 방지
     let prevBgDataUrl = null;
-    let prevBgScale = 1.0, prevBgOffsetX = 0, prevBgOffsetY = 0;
+    let prevBgScaleX = 1.0, prevBgScaleY = 1.0, prevBgOffsetX = 0, prevBgOffsetY = 0;
     this._bgUnsub = useBgImageStore.subscribe((state) => {
-      const { bgImageDataUrl, bgOpacity, gridOpacity, bgScale, bgOffsetX, bgOffsetY } = state;
+      const { bgImageDataUrl, bgOpacity, gridOpacity, bgScaleX, bgScaleY, bgOffsetX, bgOffsetY, bgLocked } = state;
 
       if (this._gridGfx) this._gridGfx.setAlpha(gridOpacity);
+
+      // 잠금 시 선택 해제 (핸들 숨김 → 클릭/리사이즈 통과)
+      if (bgLocked && this._bgSelected) {
+        this._bgSelected = false;
+        const fState = useFacilitiesStore.getState();
+        this._drawResizeHandles(fState.facilities, fState.selectedIds, this._cellPx);
+      }
 
       if (bgImageDataUrl !== prevBgDataUrl) {
         prevBgDataUrl = bgImageDataUrl;
@@ -295,7 +302,8 @@ export class GridScene extends Phaser.Scene {
         }
       } else if (this._bgImageObj) {
         this._bgImageObj.setAlpha(bgOpacity);
-        if (bgScale !== prevBgScale || bgOffsetX !== prevBgOffsetX || bgOffsetY !== prevBgOffsetY) {
+        if (bgScaleX !== prevBgScaleX || bgScaleY !== prevBgScaleY ||
+            bgOffsetX !== prevBgOffsetX || bgOffsetY !== prevBgOffsetY) {
           this._applyBgTransform();
           if (this._bgSelected) {
             const fState = useFacilitiesStore.getState();
@@ -303,7 +311,8 @@ export class GridScene extends Phaser.Scene {
           }
         }
       }
-      prevBgScale = bgScale; prevBgOffsetX = bgOffsetX; prevBgOffsetY = bgOffsetY;
+      prevBgScaleX = bgScaleX; prevBgScaleY = bgScaleY;
+      prevBgOffsetX = bgOffsetX; prevBgOffsetY = bgOffsetY;
     });
 
     // 초기 렌더
@@ -353,6 +362,7 @@ export class GridScene extends Phaser.Scene {
       const worldY = pointer.worldY;
       const store  = useFacilitiesStore.getState();
       const tStore = useTerrainStore.getState();
+      const bgLocked = useBgImageStore.getState().bgLocked;
 
       if (pointer.rightButtonDown()) {
         this._startDrag(pointer, cam);
@@ -407,22 +417,23 @@ export class GridScene extends Phaser.Scene {
         }
       }
 
-      // 배경 핸들 hitTest (배경 선택 상태일 때, 시설 hitTest 전)
-      if (!isMulti && this._bgSelected && this._bgImageObj) {
+      // 배경 핸들 hitTest (배경 선택 상태일 때, 시설 hitTest 전) — 잠금 시 통과
+      if (!isMulti && this._bgSelected && this._bgImageObj && !bgLocked) {
         const bgHandle = this._hitTestBgHandle(worldX, worldY);
         if (bgHandle) {
           const rd = this._resizeDrag;
           rd.active = true;
           rd.target = 'bg';
           rd.handle = bgHandle;
-          const { bgScale } = useBgImageStore.getState();
-          const obj = this._bgImageObj;
-          rd.startScale = bgScale;
-          rd.centerX = obj.x + obj.displayWidth  / 2;
-          rd.centerY = obj.y + obj.displayHeight / 2;
-          const dx = worldX - rd.centerX;
-          const dy = worldY - rd.centerY;
-          rd.startDist = Math.sqrt(dx * dx + dy * dy) || 1;
+          // 드래그하는 핸들의 대각(고정) 모서리를 anchor로 → 가로·세로 독립 리사이즈(비율 자유)
+          const obj  = this._bgImageObj;
+          const left = obj.x, top = obj.y;
+          const right = obj.x + obj.displayWidth, bottom = obj.y + obj.displayHeight;
+          rd.bgAnchorX = (bgHandle === 'tl' || bgHandle === 'bl') ? right : left;
+          rd.bgAnchorY = (bgHandle === 'tl' || bgHandle === 'tr') ? bottom : top;
+          const { siteSize } = useFacilitiesStore.getState();
+          rd.bgSiteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
+          rd.bgSiteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
           const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
                             bl: 'nesw-resize', br: 'nwse-resize' };
           this.input.setDefaultCursor(CURSORS[bgHandle]);
@@ -475,8 +486,8 @@ export class GridScene extends Phaser.Scene {
         return;
       }
 
-      // 배경 이미지 body 클릭 → 배경 선택 + 이동 준비
-      if (!isMulti && this._bgImageObj && this._isInsideBgImage(worldX, worldY)) {
+      // 배경 이미지 body 클릭 → 배경 선택 + 이동 준비 (잠금 시 통과 → 시설/팬 우선)
+      if (!isMulti && this._bgImageObj && !bgLocked && this._isInsideBgImage(worldX, worldY)) {
         this._bgSelected = false;
         store.clearSelection();
         tStore.clearTerrainSelection();
@@ -517,14 +528,19 @@ export class GridScene extends Phaser.Scene {
     this.input.on('pointermove', (pointer) => {
       const cam = this.cameras.main;
 
-      // 배경 scale 드래그
+      // 배경 비율 드래그 (가로·세로 독립 — 대각 모서리 고정)
       if (this._resizeDrag.active && this._resizeDrag.target === 'bg') {
         const rd = this._resizeDrag;
-        const dx = pointer.worldX - rd.centerX;
-        const dy = pointer.worldY - rd.centerY;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const newScale = Phaser.Math.Clamp(rd.startScale * (dist / rd.startDist), 0.1, 5.0);
-        useBgImageStore.getState().setBgScale(newScale);
+        const MIN = 8; // 최소 표시 px
+        const left   = Math.min(pointer.worldX, rd.bgAnchorX);
+        const top    = Math.min(pointer.worldY, rd.bgAnchorY);
+        const right  = Math.max(pointer.worldX, rd.bgAnchorX);
+        const bottom = Math.max(pointer.worldY, rd.bgAnchorY);
+        const newW = Math.max(MIN, right - left);
+        const newH = Math.max(MIN, bottom - top);
+        const bg = useBgImageStore.getState();
+        bg.setBgScaleXY(newW / rd.bgSiteW, newH / rd.bgSiteH);
+        bg.setBgOffset(left, top);
       }
 
       // 배경 이동 드래그
@@ -666,7 +682,7 @@ export class GridScene extends Phaser.Scene {
             this.input.setDefaultCursor(hh ? CURSORS[hh] : 'default');
           }
         }
-        if (this._bgSelected && this._bgImageObj) {
+        if (this._bgSelected && this._bgImageObj && !useBgImageStore.getState().bgLocked) {
           const bgH = this._hitTestBgHandle(pointer.worldX, pointer.worldY);
           if (bgH) {
             const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
@@ -845,6 +861,31 @@ export class GridScene extends Phaser.Scene {
     this._clampCamera();
   }
 
+  /**
+   * UI 줌 컨트롤용 — 절대 줌 배율을 뷰포트 중심 고정으로 적용.
+   * 휠 줌과 동일한 클램프·앵커 보정·핸들 재계산 경로 재사용.
+   * @param {number} targetZoom 1.0 = 100%
+   */
+  setZoomLevel(targetZoom) {
+    const cam = this.cameras.main;
+    if (!cam) return;
+    const toZoom = Phaser.Math.Clamp(targetZoom, GRID_CONFIG.zoomMin, GRID_CONFIG.zoomMax);
+    if (toZoom === cam.zoom) return;
+
+    const cx = cam.width / 2, cy = cam.height / 2;
+    const before = cam.getWorldPoint(cx, cy);
+    cam.zoom = toZoom;
+    cam.preRender(1);
+    const after = cam.getWorldPoint(cx, cy);
+    cam.scrollX -= after.x - before.x;
+    cam.scrollY -= after.y - before.y;
+
+    this._clampCamera();
+    if (this.onZoomUpdate) this.onZoomUpdate(cam.zoom);
+    const fState = useFacilitiesStore.getState();
+    this._drawResizeHandles(fState.facilities, fState.selectedIds, this._cellPx);
+  }
+
   /** 드래그(팬) 시작 */
   _startDrag(pointer, cam) {
     this._drag.active  = true;
@@ -950,10 +991,10 @@ export class GridScene extends Phaser.Scene {
   _applyBgTransform() {
     if (!this._bgImageObj) return;
     const { siteSize } = useFacilitiesStore.getState();
-    const { bgScale, bgOffsetX, bgOffsetY } = useBgImageStore.getState();
+    const { bgScaleX, bgScaleY, bgOffsetX, bgOffsetY } = useBgImageStore.getState();
     const siteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
     const siteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
-    this._bgImageObj.setDisplaySize(siteW * bgScale, siteH * bgScale);
+    this._bgImageObj.setDisplaySize(siteW * bgScaleX, siteH * bgScaleY);
     this._bgImageObj.setPosition(bgOffsetX, bgOffsetY);
   }
 

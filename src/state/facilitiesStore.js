@@ -182,39 +182,21 @@ export const useFacilitiesStore = create((set, get) => ({
     })),
 
   /**
-   * 선택된 시설 90도 회전 — AABB 사전 검사 포함.
-   * R키 핸들러 및 회전 버튼 공통 사용.
-   * 교훈 적용: "AABB 충돌 검사는 회전 전 사전 검사 패턴이 안전하다"
-   * @returns {boolean} 회전 성공 여부
+   * 선택된 시설 90도 회전 — 제약 없이 적용 (부지 경계 초과·겹침 허용).
+   * R키 핸들러 및 회전 버튼 공통 사용. 경계 밖이면 렌더러가 빨간 테두리로 경고만 표시.
+   * @returns {boolean} 항상 true (선택이 있으면)
    */
   tryRotateSelected: () => {
     const state = get();
     if (state.selectedIds.length === 0) return false;
-
-    const { siteSize } = state;
-    const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
-    const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
-
-    const canRotate = state.selectedIds.every((id) => {
-      const fac = state.facilities.find((f) => f.id === id);
-      if (!fac) return false;
-      const newW = fac.size.height;
-      const newH = fac.size.width;
-      if (fac.position.col + newW > siteCols) return false;
-      if (fac.position.row + newH > siteRows) return false;
-      return !aabbOverlaps(state.facilities, state.selectedIds, fac.position.col, fac.position.row, newW, newH);
-    });
-
-    if (canRotate) {
-      set((s) => ({
-        facilities: s.facilities.map((f) =>
-          s.selectedIds.includes(f.id)
-            ? { ...f, size: { width: f.size.height, height: f.size.width } }
-            : f
-        ),
-      }));
-    }
-    return canRotate;
+    set((s) => ({
+      facilities: s.facilities.map((f) =>
+        s.selectedIds.includes(f.id)
+          ? { ...f, size: { width: f.size.height, height: f.size.width } }
+          : f
+      ),
+    }));
+    return true;
   },
 
   // ── 선택 ────────────────────────────────────────────────────────────

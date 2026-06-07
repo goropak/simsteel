@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 import { useTerrainStore } from '../state/terrainStore.js';
 
@@ -36,6 +37,20 @@ export default function FacilityEditor() {
   const clearTerrainSel     = useTerrainStore((s) => s.clearTerrainSelection);
   const tryRotateTerrain    = useTerrainStore((s) => s.tryRotateTerrain);
 
+  // 단일 선택 시설 (없으면 undefined) — 크기 입력 로컬 상태용
+  const singleFac = selectedIds.length === 1
+    ? facilities.find((f) => f.id === selectedIds[0])
+    : undefined;
+  // 크기(m) 입력은 로컬 상태로 자유 타이핑 → blur/Enter에서 커밋 (키 입력마다 클램프 방지)
+  const [wText, setWText] = useState('');
+  const [hText, setHText] = useState('');
+  useEffect(() => {
+    if (singleFac) {
+      setWText(String(singleFac.size.width * 5));
+      setHText(String(singleFac.size.height * 5));
+    }
+  }, [singleFac?.id, singleFac?.size.width, singleFac?.size.height]);
+
   // ── 플레이스홀더 or 지형 정보 ───────────────────────────────────────
   if (selectedIds.length === 0) {
     // 지형이 선택된 경우
@@ -64,10 +79,7 @@ export default function FacilityEditor() {
             <div style={{ padding: '8px 12px 0', borderTop: '1px solid #2a2a40' }}>
               <button
                 style={{ ...styles.btnRotate, width: '100%' }}
-                onClick={() => {
-                  const ok = tryRotateTerrain(t.id);
-                  if (!ok) window.alert('회전 불가: 부지 경계를 벗어납니다.');
-                }}
+                onClick={() => tryRotateTerrain(t.id)}
               >
                 ↻ 90° 회전 (R키)
               </button>
@@ -133,7 +145,7 @@ export default function FacilityEditor() {
   }
 
   // ── 단일 편집 폼 ──────────────────────────────────────────────────────
-  const fac = facilities.find((f) => f.id === selectedIds[0]);
+  const fac = singleFac;
   if (!fac) return null;
 
   const isCustom = fac.source === 'user-defined';
@@ -150,9 +162,12 @@ export default function FacilityEditor() {
     window.alert(`'${fac.name}'을(를) 사용자 정의 시설로 복사했습니다.\n팔레트 하단 "사용자 정의" 섹션에서 확인하세요.`);
   };
 
-  const handleSizeChange = (axis, raw) => {
-    const v = Math.max(1, Math.min(50, parseInt(raw, 10) || 1));
-    updateFacility(fac.id, { size: { ...fac.size, [axis]: v } });
+  // 크기 입력 커밋 — 미터(m)를 격자(5m) 단위로 스냅해 셀 수로 저장 (blur/Enter 시점)
+  const commitSize = (axis, raw, setText) => {
+    const m = Math.max(5, Math.min(250, parseInt(raw, 10) || 5));
+    const cells = Math.max(1, Math.round(m / 5));
+    setText(String(cells * 5));
+    updateFacility(fac.id, { size: { ...fac.size, [axis]: cells } });
   };
 
   const handleDelete = () => {
@@ -182,25 +197,29 @@ export default function FacilityEditor() {
           </div>
         </Field>
 
-        {/* 크기 */}
-        <Field label="크기 (셀)">
+        {/* 크기 — 미터(m) 직접 입력 (격자 5m 스냅) */}
+        <Field label="크기 (m · 가로×세로)">
           <div style={styles.row}>
             <label style={styles.miniLabel}>W</label>
             <input
-              style={{ ...styles.input, width: '52px' }}
-              type="number" min={1} max={50}
-              value={fac.size.width}
-              onChange={(e) => handleSizeChange('width', e.target.value)}
+              style={{ ...styles.input, width: '56px' }}
+              type="number" min={5} max={250} step={5}
+              value={wText}
+              onChange={(e) => setWText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { commitSize('width', wText, setWText); e.currentTarget.blur(); } }}
+              onBlur={() => commitSize('width', wText, setWText)}
             />
             <label style={styles.miniLabel}>H</label>
             <input
-              style={{ ...styles.input, width: '52px' }}
-              type="number" min={1} max={50}
-              value={fac.size.height}
-              onChange={(e) => handleSizeChange('height', e.target.value)}
+              style={{ ...styles.input, width: '56px' }}
+              type="number" min={5} max={250} step={5}
+              value={hText}
+              onChange={(e) => setHText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { commitSize('height', hText, setHText); e.currentTarget.blur(); } }}
+              onBlur={() => commitSize('height', hText, setHText)}
             />
             <span style={styles.dimHint}>
-              ={fac.size.width * 5}×{fac.size.height * 5}m
+              셀 {fac.size.width}×{fac.size.height}
             </span>
           </div>
         </Field>
@@ -260,6 +279,19 @@ export default function FacilityEditor() {
           </div>
         </Field>
 
+        {/* 농도 (채우기 불투명도) — 시설별로 진하게/연하게 */}
+        <Field label="농도">
+          <div style={styles.row}>
+            <input
+              type="range" min={10} max={100} step={5}
+              value={Math.round((fac.opacity ?? 1) * 100)}
+              onChange={(e) => handleChange('opacity', Number(e.target.value) / 100)}
+              style={{ flex: 1, accentColor: '#7777cc', cursor: 'pointer' }}
+            />
+            <span style={styles.dimHint}>{Math.round((fac.opacity ?? 1) * 100)}%</span>
+          </div>
+        </Field>
+
         {/* 비고 */}
         <Field label="비고">
           <textarea
@@ -277,10 +309,7 @@ export default function FacilityEditor() {
       <div style={{ padding: '8px 12px 0', borderTop: '1px solid #2a2a40' }}>
         <button
           style={{ ...styles.btnRotate, width: '100%' }}
-          onClick={() => {
-            const ok = tryRotateSelected();
-            if (!ok) window.alert('회전 불가: 부지 경계 또는 다른 시설과 겹칩니다.');
-          }}
+          onClick={() => tryRotateSelected()}
         >
           ↻ 90° 회전 (R키)
         </button>

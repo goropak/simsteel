@@ -8,8 +8,6 @@
  * - 헌법 0조 부칙: localStorage 전용, 서버 전송 0줄.
  */
 import { create } from 'zustand';
-import { GRID_CONFIG } from '../phaser/config.js';
-import { useFacilitiesStore } from './facilitiesStore.js';
 
 const LS_KEY = 'simsteel:terrain';
 
@@ -56,29 +54,13 @@ export const useTerrainStore = create((set) => ({
   }),
 
   /**
-   * 지형 90° 회전 — AABB 사전 검사 포함 (부지 경계 Hard Block).
-   * 교훈: "AABB 충돌 검사는 회전 전 사전 검사 패턴이 안전하다"
-   * 지형끼리는 겹침 허용 — 부지 경계만 검사.
-   * @returns {boolean} 회전 성공 여부
+   * 지형 90° 회전 — 제약 없이 적용 (부지 경계 초과 허용).
+   * @returns {boolean} 회전 성공 여부 (대상 존재 시 true)
    */
   tryRotateTerrain: (id) => {
-    const state = get();
-    const t = state.terrains.find((x) => x.id === id);
-    if (!t) return false;
-
-    const facStore = useFacilitiesStore.getState();
-    const siteCols = facStore.siteSize.widthM  / GRID_CONFIG.cellSize;
-    const siteRows = facStore.siteSize.heightM / GRID_CONFIG.cellSize;
-
-    const newW = t.height;
-    const newH = t.width;
-
-    if (t.col + newW > siteCols) return false;
-    if (t.row + newH > siteRows) return false;
-
     set((s) => {
       const updated = s.terrains.map((x) =>
-        x.id === id ? { ...x, width: newW, height: newH } : x
+        x.id === id ? { ...x, width: x.height, height: x.width } : x
       );
       saveTerrain(updated);
       return { terrains: updated };

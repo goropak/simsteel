@@ -57,12 +57,14 @@ export class FacilityRenderer {
         fac.position.col + fac.size.width  > siteCols ||
         fac.position.row + fac.size.height > siteRows;
 
-      // ── 색상 결정
-      const colorHex = isConfirmed ? (fac.color || '#6b9fff') : '#888888';
+      // ── 색상 결정: 사용자 지정 색을 항상 우선 (미확정은 아래 해치 오버레이로 표시)
+      const colorHex = fac.color || (isConfirmed ? '#6b9fff' : '#888888');
       const colorInt = parseInt(colorHex.replace('#', ''), 16);
 
       // 페이드인 alpha 배율 (0~1, 애니 없으면 1.0)
       const a = facAnim[fac.id] !== undefined ? facAnim[fac.id] : 1;
+      // 시설별 채우기 농도 (0~1, 미설정 시 1.0)
+      const op = fac.opacity !== undefined ? fac.opacity : 1;
 
       // 2.5D 높이 오프셋 (평면일 때 lift=0 → yDraw === y, 기존 경로와 동일)
       const lift  = view2_5d ? Math.min(w, h) * 0.4 : 0;
@@ -74,12 +76,12 @@ export class FacilityRenderer {
         const gCh = Math.floor(((colorInt >>  8) & 0xff) * 0.6);
         const bCh = Math.floor(( colorInt        & 0xff) * 0.6);
         const darkerInt = (rCh << 16) | (gCh << 8) | bCh;
-        g.fillStyle(darkerInt, (isSelected ? 0.7 : 0.55) * a);
+        g.fillStyle(darkerInt, (isSelected ? 0.7 : 0.55) * a * op);
         g.fillRect(x, y + h - lift, w, lift);
       }
 
       // ── 윗면(평면일 때는 전체면) 채우기
-      g.fillStyle(colorInt, (isSelected ? 0.55 : 0.35) * a);
+      g.fillStyle(colorInt, (isSelected ? 0.55 : 0.35) * a * op);
       g.fillRect(x, yDraw, w, h);
 
       // confirmed: false → 회색 해치 오버레이

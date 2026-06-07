@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useBgImageStore } from '../state/bgImageStore.js';
+import { useFacilitiesStore } from '../state/facilitiesStore.js';
 
 /**
  * 배경 트레이싱 패널 (v0.2.8.5)
@@ -12,15 +13,26 @@ export default function BgImagePanel() {
   const bgImageDataUrl = useBgImageStore((s) => s.bgImageDataUrl);
   const bgOpacity      = useBgImageStore((s) => s.bgOpacity);
   const gridOpacity    = useBgImageStore((s) => s.gridOpacity);
-  const bgScale        = useBgImageStore((s) => s.bgScale);
-  const bgOffsetX      = useBgImageStore((s) => s.bgOffsetX);
-  const bgOffsetY      = useBgImageStore((s) => s.bgOffsetY);
+  const bgScaleX       = useBgImageStore((s) => s.bgScaleX);
+  const bgScaleY       = useBgImageStore((s) => s.bgScaleY);
+  const bgLocked       = useBgImageStore((s) => s.bgLocked);
   const setBgImage     = useBgImageStore((s) => s.setBgImage);
   const clearBgImage   = useBgImageStore((s) => s.clearBgImage);
   const setBgOpacity   = useBgImageStore((s) => s.setBgOpacity);
   const setGridOpacity = useBgImageStore((s) => s.setGridOpacity);
   const setBgScale     = useBgImageStore((s) => s.setBgScale);
+  const setBgScaleX    = useBgImageStore((s) => s.setBgScaleX);
+  const setBgScaleY    = useBgImageStore((s) => s.setBgScaleY);
   const setBgOffset    = useBgImageStore((s) => s.setBgOffset);
+  const toggleBgLock   = useBgImageStore((s) => s.toggleBgLock);
+
+  const siteSize = useFacilitiesStore((s) => s.siteSize);
+
+  // 표시용 이미지 실측 크기(m) = 사이트 크기 × 배율 (격자 단위 반올림 표시)
+  const imgWidthM  = Math.round(bgScaleX * siteSize.widthM);
+  const imgHeightM = Math.round(bgScaleY * siteSize.heightM);
+  const handleWidthM  = (m) => { const v = Number(m); if (v > 0) setBgScaleX(v / siteSize.widthM); };
+  const handleHeightM = (m) => { const v = Number(m); if (v > 0) setBgScaleY(v / siteSize.heightM); };
 
   const fileInputRef = useRef(null);
 
@@ -78,18 +90,26 @@ export default function BgImagePanel() {
               <span style={styles.sliderVal}>{Math.round(gridOpacity * 100)}%</span>
             </div>
 
+            {/* 크기 직접 수치 입력 (m) — 가로/세로 독립 → 비율 자유 */}
             <div style={styles.sliderRow}>
-              <span style={styles.sliderLabel}>크기</span>
+              <span style={styles.sliderLabel}>크기 m</span>
               <input
-                type="range"
-                min={10}
-                max={300}
-                value={Math.round(bgScale * 100)}
-                onChange={(e) => setBgScale(Number(e.target.value) / 100)}
-                style={styles.slider}
+                type="number" min={5} step={5}
+                value={imgWidthM}
+                onChange={(e) => handleWidthM(e.target.value)}
+                style={styles.numInput}
+                title="가로 (m)"
               />
-              <span style={styles.sliderVal}>{Math.round(bgScale * 100)}%</span>
+              <span style={styles.times}>×</span>
+              <input
+                type="number" min={5} step={5}
+                value={imgHeightM}
+                onChange={(e) => handleHeightM(e.target.value)}
+                style={styles.numInput}
+                title="세로 (m)"
+              />
             </div>
+            <div style={styles.hintRow}>모서리 드래그로도 가로·세로 따로 조절</div>
 
             <div style={styles.btnRow}>
               <button
@@ -97,6 +117,13 @@ export default function BgImagePanel() {
                 onClick={() => { setBgScale(1); setBgOffset(0, 0); }}
               >
                 위치·크기 초기화
+              </button>
+              <button
+                style={bgLocked ? styles.lockBtnOn : styles.changeBtn}
+                onClick={toggleBgLock}
+                title="잠그면 이미지가 클릭/리사이즈를 가로채지 않아 시설 편집이 우선됩니다"
+              >
+                {bgLocked ? '🔒 잠금됨' : '🔓 잠금'}
               </button>
             </div>
 
@@ -173,6 +200,40 @@ const styles = {
     width: '30px',
     textAlign: 'right',
     fontVariantNumeric: 'tabular-nums',
+  },
+  numInput: {
+    flex: 1,
+    minWidth: 0,
+    background: '#1a1a28',
+    border: '1px solid #2a2a40',
+    borderRadius: '3px',
+    color: '#aaaadd',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '11px',
+    padding: '3px 5px',
+    boxSizing: 'border-box',
+    outline: 'none',
+  },
+  times: {
+    fontSize: '10px',
+    color: '#5555aa',
+    flexShrink: 0,
+  },
+  hintRow: {
+    fontSize: '8px',
+    color: '#444466',
+    marginTop: '-2px',
+  },
+  lockBtnOn: {
+    flex: 1,
+    background: '#2a2410',
+    border: '1px solid #6a5a20',
+    borderRadius: '3px',
+    color: '#ddcc66',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '10px',
+    padding: '4px',
+    cursor: 'pointer',
   },
   btnRow: {
     display: 'flex',
