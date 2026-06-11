@@ -2,10 +2,30 @@ import Phaser from 'phaser';
 import { GRID_CONFIG, GRID_COLORS } from './config.js';
 import { FacilityRenderer } from './FacilityRenderer.js';
 import { TerrainRenderer } from './TerrainRenderer.js';
+import { GhostRenderer } from './GhostRenderer.js';
+import { ImageLayerRenderer } from './ImageLayerRenderer.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 import { useTerrainStore } from '../state/terrainStore.js';
 import { useImportStore } from '../state/importStore.js';
 import { useBgImageStore } from '../state/bgImageStore.js';
+import { useLayoutStore } from '../state/layoutStore.js';
+import { useCompareStore } from '../state/compareStore.js';
+import { useImageLayerStore } from '../state/imageLayerStore.js';
+import { effectiveDefaultSize } from '../state/defaultSizeStore.js';
+import { useGridStore } from '../state/gridStore.js';
+import { useExtractStore } from '../state/extractStore.js';
+import { useRenameStore } from '../state/renameStore.js';
+
+/**
+ * DOM 입력 요소에 포커스가 있는지 — Phaser 키보드는 window 전역에서 듣기 때문에
+ * input/textarea 타이핑 중 단축키(R/Delete/화살표 등)가 오발동한다. (v0.5.1 가드)
+ */
+function isTypingInDOM() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
 
 /**
  * 시설 타입별 배치 기본값
@@ -14,7 +34,7 @@ import { useBgImageStore } from '../state/bgImageStore.js';
  *
  * 셀 단위 (1셀 = 5m). 예: width:20 = 100m
  */
-const FACILITY_DEFAULTS = {
+export const FACILITY_DEFAULTS = {
   // ── 원료 처리 ────────────────────────────────────────────────
   unloader:    { width: 10, height: 60, color: '#7a8c6e', baseName: '하역설비',   abbrev: 'UL',  confirmed: true,  source: 'TEFR Dastur 2021 §3' },
   iron_yard:   { width: 40, height: 60, color: '#7a8c6e', baseName: '철광석 야드', abbrev: 'IOY', confirmed: true,  source: 'TEFR Dastur 2021 §3' },
@@ -109,8 +129,15 @@ export class GridScene extends Phaser.Scene {
     this._terrainUnsub  = null;
     this._importUnsub   = null;
     this._bgUnsub       = null;
+    this._compareUnsub  = null;   // 고스트 비교 레이어 (v0.4.2)
+    this._layoutUnsub   = null;
+    this._imgLayerUnsub = null;   // 이미지 레이어 (v0.4.3)
+    this._gridUnsub     = null;   // 격자 농도 (v0.5.0 feature 4)
+    this._extractUnsub  = null;   // 추출 모드 (v0.5.0 feature 5)
     this._renderer      = null;
     this._terrainRend   = null;
+    this._ghostRend     = null;   // 고스트(비교) 렌더러 (depth 8)
+    this._imgLayerRend  = null;   // 이미지 레이어 렌더러 (depth 0.6)
     this._cellPx        = 0;
     this._boundaryGfx   = null;
     this._outsideGfx    = null;
@@ -122,14 +149,21 @@ export class GridScene extends Phaser.Scene {
 
     this._bgSelected      = false;
     this._bgDrag          = { active: false, startWX: 0, startWY: 0, startOffX: 0, startOffY: 0 };
+    // v0.5.0(feature 7) 이미지 레이어 드래그 이동
+    this._imgLayerDrag    = { active: false, id: null, startWX: 0, startWY: 0, startOffX: 0, startOffY: 0 };
+    // v0.5.0(feature 5) 추출 모드 — 사각형 러버밴드 드래그
+    this._extractDrag     = { active: false, startWX: 0, startWY: 0, curWX: 0, curWY: 0 };
+    this._extractGfx      = null;  // 추출 러버밴드 그래픽스 (depth 13)
+    this._extractCanvas   = null;  // { dataUrl, canvas, ctx, w, h } — 자동 인식 픽셀 캐시
     this._resizeDrag      = { active: false, handle: null, facId: null, target: 'fac',
                               anchorCol: 0, anchorRow: 0,
                               lastW: 0, lastH: 0, lastCol: 0, lastRow: 0,
-                              bgAnchorX: 0, bgAnchorY: 0, bgSiteW: 0, bgSiteH: 0 };
+                              startScaleX: 1, startScaleY: 1, startDist: 0, centerX: 0, centerY: 0 };
     this._resizeHandleGfx = null;
     this._facAnim    = {};    // 페이드인 진행값 { [facId]: 0~1 }
     this._pulse      = 0;    // 선택 펄스 진행값 0~1
     this._pulseTween = null; // 펄스 Tween (active 중일 때만 존재)
+    this._lastClick  = { id: null, time: 0 }; // 더블클릭 감지(시설명 인라인 수정 — v0.5.0 feature 2)
   }
 
   create() {
@@ -156,7 +190,8 @@ export class GridScene extends Phaser.Scene {
     // ── 격자선 (depth 1) ──────────────────────────────────────
     const g = this._gridGfx = this.add.graphics().setDepth(1);
 
-    g.lineStyle(1, GRID_COLORS.gridThin, 0.6);
+    // v0.5.0(feature 14) — SimCity풍: 얇은 격자를 더 은은하게(0.35), 굵은 격자도 차분히(0.65)
+    g.lineStyle(1, GRID_COLORS.gridThin, 0.35);
     for (let x = 0; x <= maxCells; x++) {
       if (x % gridMajorEvery === 0) continue;
       g.moveTo(x * cellPx, 0); g.lineTo(x * cellPx, worldH);
@@ -167,7 +202,7 @@ export class GridScene extends Phaser.Scene {
     }
     g.strokePath();
 
-    g.lineStyle(1, GRID_COLORS.gridBold, 0.9);
+    g.lineStyle(1, GRID_COLORS.gridBold, 0.65);
     for (let x = 0; x <= maxCells; x += gridMajorEvery) {
       g.moveTo(x * cellPx, 0); g.lineTo(x * cellPx, worldH);
     }
@@ -199,8 +234,17 @@ export class GridScene extends Phaser.Scene {
     // ── import 부지경계 박스 (depth 4) ───────────────────────
     this._importBndGfx = this.add.graphics().setDepth(4);
 
+    // ── 추출 모드 러버밴드 (depth 13) — 최상단 (v0.5.0 feature 5) ──
+    this._extractGfx = this.add.graphics().setDepth(13);
+
     // ── 지형 렌더러 (depth 5) — 시설 아래 ───────────────────
     this._terrainRend = new TerrainRenderer(this);
+
+    // ── 이미지 레이어 (depth 0.6) — 배경 트레이싱 위·격자 아래 (v0.4.3) ──
+    this._imgLayerRend = new ImageLayerRenderer(this);
+
+    // ── 고스트 비교 레이어 (depth 8) — 지형 위·시설 아래 (v0.4.2) ──
+    this._ghostRend = new GhostRenderer(this);
 
     // ── 시설 렌더러 (depth 10) ────────────────────────────────
     this._renderer = new FacilityRenderer(this);
@@ -259,6 +303,7 @@ export class GridScene extends Phaser.Scene {
         this._drawBoundary();
         this._centerCameraOnSite();
         this._updateBgImageSize();
+        this._renderImageLayers();
       }
       if (this.input && !this._drag.active) {
         this.input.setDefaultCursor(state.paletteSelectedTypeId ? 'crosshair' : 'default');
@@ -277,21 +322,43 @@ export class GridScene extends Phaser.Scene {
       this._drawImportBoundary(state.siteBoundary, cellPx);
     });
 
+    // 비교(고스트) store + 레이아웃 store 구독 — 고스트 레이어 갱신 (v0.4.2)
+    this._compareUnsub = useCompareStore.subscribe(() => this._renderGhosts(cellPx));
+    this._layoutUnsub  = useLayoutStore.subscribe(() => this._renderGhosts(cellPx));
+    this._renderGhosts(cellPx); // 초기 1회
+
+    // 이미지 레이어 store 구독 — 다중 참조 이미지 갱신 (v0.4.3)
+    this._imgLayerUnsub = useImageLayerStore.subscribe(() => this._renderImageLayers());
+    this._renderImageLayers(); // 초기 1회
+
+    // 격자 농도 store 구독 (v0.5.0 feature 4) — 배경 이미지와 독립
+    const applyGridOpacity = () => {
+      if (this._gridGfx) this._gridGfx.setAlpha(useGridStore.getState().gridOpacity);
+    };
+    this._gridUnsub = useGridStore.subscribe(applyGridOpacity);
+    applyGridOpacity(); // 초기 1회
+
+    // 추출 store 구독 (v0.5.0 feature 5) — 부지 경계 자동 생성 1회성 명령 + 모드 종료 시 러버밴드 정리
+    let prevAutoNonce = useExtractStore.getState().autoSiteNonce;
+    this._extractUnsub = useExtractStore.subscribe((st) => {
+      if (st.autoSiteNonce !== prevAutoNonce) {
+        prevAutoNonce = st.autoSiteNonce;
+        this._autoGenerateSite();
+      }
+      if (!st.extractMode && this._extractGfx) {
+        this._extractGfx.clear();
+        this._extractDrag.active = false;
+      }
+      const cur = useFacilitiesStore.getState().paletteSelectedTypeId;
+      this.input.setDefaultCursor(st.extractMode ? 'crosshair' : (cur ? 'crosshair' : 'default'));
+    });
+
     // 배경 트레이싱 store 구독 (v0.2.8.5)
     // prevBgDataUrl 클로저로 URL 변경 여부를 추적 — 슬라이더 조작 시 texture 재로드 방지
     let prevBgDataUrl = null;
     let prevBgScaleX = 1.0, prevBgScaleY = 1.0, prevBgOffsetX = 0, prevBgOffsetY = 0;
     this._bgUnsub = useBgImageStore.subscribe((state) => {
-      const { bgImageDataUrl, bgOpacity, gridOpacity, bgScaleX, bgScaleY, bgOffsetX, bgOffsetY, bgLocked } = state;
-
-      if (this._gridGfx) this._gridGfx.setAlpha(gridOpacity);
-
-      // 잠금 시 선택 해제 (핸들 숨김 → 클릭/리사이즈 통과)
-      if (bgLocked && this._bgSelected) {
-        this._bgSelected = false;
-        const fState = useFacilitiesStore.getState();
-        this._drawResizeHandles(fState.facilities, fState.selectedIds, this._cellPx);
-      }
+      const { bgImageDataUrl, bgOpacity, bgScaleX, bgScaleY, bgOffsetX, bgOffsetY } = state;
 
       if (bgImageDataUrl !== prevBgDataUrl) {
         prevBgDataUrl = bgImageDataUrl;
@@ -362,13 +429,44 @@ export class GridScene extends Phaser.Scene {
       const worldY = pointer.worldY;
       const store  = useFacilitiesStore.getState();
       const tStore = useTerrainStore.getState();
-      const bgLocked = useBgImageStore.getState().bgLocked;
 
       if (pointer.rightButtonDown()) {
         this._startDrag(pointer, cam);
         return;
       }
       if (!pointer.leftButtonDown()) return;
+
+      // ── 추출 모드 (v0.5.0 feature 5) — 다른 모든 상호작용보다 우선 ──
+      const exState = useExtractStore.getState();
+      if (exState.extractMode) {
+        if (exState.extractTool === 'auto') {
+          this._autoExtractAt(worldX, worldY, cellPx);
+        } else {
+          this._extractDrag.active  = true;
+          this._extractDrag.startWX = worldX;
+          this._extractDrag.startWY = worldY;
+          this._extractDrag.curWX   = worldX;
+          this._extractDrag.curWY   = worldY;
+        }
+        return;
+      }
+
+      // ── 이미지 레이어 이동 모드 (v0.5.0 feature 7) ──
+      // activeMoveId가 켜져 있으면 다른 어떤 hitTest보다 우선 — 그 레이어를 드래그로 이동
+      const imgState = useImageLayerStore.getState();
+      if (imgState.activeMoveId) {
+        const layer = imgState.layers.find((l) => l.id === imgState.activeMoveId);
+        if (layer) {
+          this._imgLayerDrag.active   = true;
+          this._imgLayerDrag.id       = layer.id;
+          this._imgLayerDrag.startWX  = worldX;
+          this._imgLayerDrag.startWY  = worldY;
+          this._imgLayerDrag.startOffX = layer.offsetX;
+          this._imgLayerDrag.startOffY = layer.offsetY;
+          this.input.setDefaultCursor('grabbing');
+          return;
+        }
+      }
 
       // 배치 모드 — 지형 vs 시설 구분
       if (store.paletteSelectedTypeId) {
@@ -417,23 +515,23 @@ export class GridScene extends Phaser.Scene {
         }
       }
 
-      // 배경 핸들 hitTest (배경 선택 상태일 때, 시설 hitTest 전) — 잠금 시 통과
-      if (!isMulti && this._bgSelected && this._bgImageObj && !bgLocked) {
+      // 배경 핸들 hitTest (배경 선택 상태일 때, 시설 hitTest 전)
+      if (!isMulti && this._bgSelected && this._bgImageObj) {
         const bgHandle = this._hitTestBgHandle(worldX, worldY);
         if (bgHandle) {
           const rd = this._resizeDrag;
           rd.active = true;
           rd.target = 'bg';
           rd.handle = bgHandle;
-          // 드래그하는 핸들의 대각(고정) 모서리를 anchor로 → 가로·세로 독립 리사이즈(비율 자유)
-          const obj  = this._bgImageObj;
-          const left = obj.x, top = obj.y;
-          const right = obj.x + obj.displayWidth, bottom = obj.y + obj.displayHeight;
-          rd.bgAnchorX = (bgHandle === 'tl' || bgHandle === 'bl') ? right : left;
-          rd.bgAnchorY = (bgHandle === 'tl' || bgHandle === 'tr') ? bottom : top;
-          const { siteSize } = useFacilitiesStore.getState();
-          rd.bgSiteW = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
-          rd.bgSiteH = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
+          const { bgScaleX, bgScaleY } = useBgImageStore.getState();
+          const obj = this._bgImageObj;
+          rd.startScaleX = bgScaleX;
+          rd.startScaleY = bgScaleY;
+          rd.centerX = obj.x + obj.displayWidth  / 2;
+          rd.centerY = obj.y + obj.displayHeight / 2;
+          const dx = worldX - rd.centerX;
+          const dy = worldY - rd.centerY;
+          rd.startDist = Math.sqrt(dx * dx + dy * dy) || 1;
           const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
                             bl: 'nesw-resize', br: 'nwse-resize' };
           this.input.setDefaultCursor(CURSORS[bgHandle]);
@@ -444,6 +542,29 @@ export class GridScene extends Phaser.Scene {
       // 시설 우선 hitTest
       const hitFacId = this._renderer.hitTest(worldX, worldY, store.facilities, cellPx);
       if (hitFacId) {
+        // ── 더블클릭 → 맵에서 시설명 인라인 수정 (v0.5.0 feature 2) ──
+        const now = (pointer.event && pointer.event.timeStamp) || Date.now();
+        if (!isMulti && this._lastClick.id === hitFacId && (now - this._lastClick.time) < 350) {
+          this._lastClick = { id: null, time: 0 };
+          const fac = store.facilities.find((f) => f.id === hitFacId);
+          if (fac) {
+            // v0.5.1 — window.prompt 대신 그 시설 자리에 인라인 입력창 (Finder rename UX)
+            const wx = fac.position.col * cellPx;
+            const wy = fac.position.row * cellPx;
+            const z = cam.zoom;
+            useRenameStore.getState().openRename({
+              facId:  hitFacId,
+              name:   fac.name,
+              left:   (wx - cam.worldView.x) * z,
+              top:    (wy - cam.worldView.y) * z,
+              width:  fac.size.width  * cellPx * z,
+              height: fac.size.height * cellPx * z,
+            });
+          }
+          return; // 드래그 시작 안 함
+        }
+        this._lastClick = { id: hitFacId, time: now };
+
         this._bgSelected = false;
         tStore.clearTerrainSelection();
         store.selectFacility(hitFacId, isMulti);
@@ -486,8 +607,8 @@ export class GridScene extends Phaser.Scene {
         return;
       }
 
-      // 배경 이미지 body 클릭 → 배경 선택 + 이동 준비 (잠금 시 통과 → 시설/팬 우선)
-      if (!isMulti && this._bgImageObj && !bgLocked && this._isInsideBgImage(worldX, worldY)) {
+      // 배경 이미지 body 클릭 → 배경 선택 + 이동 준비
+      if (!isMulti && this._bgImageObj && this._isInsideBgImage(worldX, worldY)) {
         this._bgSelected = false;
         store.clearSelection();
         tStore.clearTerrainSelection();
@@ -514,33 +635,58 @@ export class GridScene extends Phaser.Scene {
     });
 
     this.input.on('pointerup', () => {
+      // 추출 모드 사각형 확정 (v0.5.0 feature 5)
+      if (this._extractDrag.active) {
+        this._extractDrag.active = false;
+        this._finishExtractRect(cellPx);
+      }
       this._drag.active        = false;
       this._facDrag.active     = false;
       this._terrainDrag.active = false;
       this._resizeDrag.active  = false;
       this._resizeDrag.target  = 'fac';
       this._bgDrag.active      = false;
+      this._imgLayerDrag.active = false;
+      const imgMove = useImageLayerStore.getState().activeMoveId;
       const paletteTypeId = useFacilitiesStore.getState().paletteSelectedTypeId;
-      this.input.setDefaultCursor(paletteTypeId ? 'crosshair' : 'default');
+      this.input.setDefaultCursor(imgMove ? 'grab' : paletteTypeId ? 'crosshair' : 'default');
     });
 
     // ── 포인터 이동 ───────────────────────────────────────────
     this.input.on('pointermove', (pointer) => {
       const cam = this.cameras.main;
 
-      // 배경 비율 드래그 (가로·세로 독립 — 대각 모서리 고정)
+      // 배경 scale 드래그 (코너 핸들 — 양 축 동일 배율 적용, 비균일 비율 보존)
       if (this._resizeDrag.active && this._resizeDrag.target === 'bg') {
         const rd = this._resizeDrag;
-        const MIN = 8; // 최소 표시 px
-        const left   = Math.min(pointer.worldX, rd.bgAnchorX);
-        const top    = Math.min(pointer.worldY, rd.bgAnchorY);
-        const right  = Math.max(pointer.worldX, rd.bgAnchorX);
-        const bottom = Math.max(pointer.worldY, rd.bgAnchorY);
-        const newW = Math.max(MIN, right - left);
-        const newH = Math.max(MIN, bottom - top);
-        const bg = useBgImageStore.getState();
-        bg.setBgScaleXY(newW / rd.bgSiteW, newH / rd.bgSiteH);
-        bg.setBgOffset(left, top);
+        const dx = pointer.worldX - rd.centerX;
+        const dy = pointer.worldY - rd.centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const f = dist / rd.startDist;
+        useBgImageStore.getState().setBgScaleXY(
+          Phaser.Math.Clamp((rd.startScaleX ?? 1) * f, 0.1, 5.0),
+          Phaser.Math.Clamp((rd.startScaleY ?? 1) * f, 0.1, 5.0),
+        );
+      }
+
+      // 추출 모드 러버밴드 드래그 (v0.5.0 feature 5)
+      if (this._extractDrag.active) {
+        this._extractDrag.curWX = pointer.worldX;
+        this._extractDrag.curWY = pointer.worldY;
+        this._drawExtractRubberband(cellPx);
+        return;
+      }
+
+      // 이미지 레이어 이동 드래그 (v0.5.0 feature 7)
+      if (this._imgLayerDrag.active) {
+        const dx = pointer.worldX - this._imgLayerDrag.startWX;
+        const dy = pointer.worldY - this._imgLayerDrag.startWY;
+        useImageLayerStore.getState().setOffset(
+          this._imgLayerDrag.id,
+          this._imgLayerDrag.startOffX + dx,
+          this._imgLayerDrag.startOffY + dy,
+        );
+        return;
       }
 
       // 배경 이동 드래그
@@ -682,7 +828,7 @@ export class GridScene extends Phaser.Scene {
             this.input.setDefaultCursor(hh ? CURSORS[hh] : 'default');
           }
         }
-        if (this._bgSelected && this._bgImageObj && !useBgImageStore.getState().bgLocked) {
+        if (this._bgSelected && this._bgImageObj) {
           const bgH = this._hitTestBgHandle(pointer.worldX, pointer.worldY);
           if (bgH) {
             const CURSORS = { tl: 'nwse-resize', tr: 'nesw-resize',
@@ -705,6 +851,7 @@ export class GridScene extends Phaser.Scene {
 
     // ESC: 배치 모드 해제 + 배경 선택 해제
     this.input.keyboard.on('keydown-ESC', () => {
+      if (isTypingInDOM()) return; // 입력창 타이핑 중 오발동 방지 (v0.5.1)
       useFacilitiesStore.getState().setPaletteSelection(null);
       if (this._bgSelected) {
         this._bgSelected = false;
@@ -716,6 +863,7 @@ export class GridScene extends Phaser.Scene {
 
     // Delete / Backspace: 시설 또는 선택 지형 삭제
     const handleDelete = () => {
+      if (isTypingInDOM()) return; // 입력창 타이핑 중 오발동 방지 (v0.5.1)
       const state  = useFacilitiesStore.getState();
       const tState = useTerrainStore.getState();
 
@@ -741,6 +889,7 @@ export class GridScene extends Phaser.Scene {
 
     // R: 선택 시설 또는 선택 지형 90도 회전
     this.input.keyboard.on('keydown-R', () => {
+      if (isTypingInDOM()) return; // 입력창 타이핑 중 오발동 방지 (v0.5.1)
       const state  = useFacilitiesStore.getState();
       const tState = useTerrainStore.getState();
       if (state.selectedIds.length > 0) {
@@ -752,11 +901,29 @@ export class GridScene extends Phaser.Scene {
 
     // Cmd+D / Ctrl+D: 복제
     this.input.keyboard.on('keydown-D', (event) => {
+      if (isTypingInDOM()) return; // 입력창 타이핑 중 오발동 방지 (v0.5.1)
       if (!event.metaKey && !event.ctrlKey) return;
       event.preventDefault();
       const state = useFacilitiesStore.getState();
       if (state.selectedIds.length > 0) state.copySelected();
     });
+
+    // ── 화살표 키: 선택 시설 크기 조정 (v0.5.0 feature 1) ──────────────
+    //   ←/→ : 가로(W) ∓ , ↑/↓ : 세로(H) ∓ . Shift 동시 = 5셀 단위(빠르게).
+    //   Delete는 삭제 전용 — 크기 조정은 화살표로 분리해 혼동(삭제 확인창) 제거.
+    const handleArrowResize = (event, dwUnit, dhUnit) => {
+      if (isTypingInDOM()) return; // 입력창 타이핑 중 오발동 방지 (v0.5.1)
+      const state = useFacilitiesStore.getState();
+      if (state.paletteSelectedTypeId) return;       // 배치 모드 중엔 무시
+      if (state.selectedIds.length !== 1) return;    // 단일 선택만
+      event.preventDefault();
+      const step = (event.shiftKey ? 5 : 1);
+      this._resizeSelectedBy(dwUnit * step, dhUnit * step);
+    };
+    this.input.keyboard.on('keydown-RIGHT', (e) => handleArrowResize(e,  1,  0));
+    this.input.keyboard.on('keydown-LEFT',  (e) => handleArrowResize(e, -1,  0));
+    this.input.keyboard.on('keydown-DOWN',  (e) => handleArrowResize(e,  0,  1));
+    this.input.keyboard.on('keydown-UP',    (e) => handleArrowResize(e,  0, -1));
 
     this.input.setDefaultCursor('default');
 
@@ -766,12 +933,21 @@ export class GridScene extends Phaser.Scene {
       if (this._terrainUnsub)    this._terrainUnsub();
       if (this._importUnsub)     this._importUnsub();
       if (this._bgUnsub)         this._bgUnsub();
+      if (this._compareUnsub)    this._compareUnsub();
+      if (this._layoutUnsub)     this._layoutUnsub();
+      if (this._imgLayerUnsub)   this._imgLayerUnsub();
+      if (this._gridUnsub)       this._gridUnsub();
+      if (this._extractUnsub)    this._extractUnsub();
       if (this._renderer)        this._renderer.destroy();
       if (this._terrainRend)     this._terrainRend.destroy();
+      if (this._ghostRend)       this._ghostRend.destroy();
+      if (this._imgLayerRend)    this._imgLayerRend.destroy();
       if (this._boundaryGfx)     this._boundaryGfx.destroy();
       if (this._outsideGfx)      this._outsideGfx.destroy();
       if (this._siteFillGfx)     this._siteFillGfx.destroy();
       if (this._importBndGfx)    this._importBndGfx.destroy();
+      if (this._extractGfx)      this._extractGfx.destroy();
+      if (this._extractLabel)    this._extractLabel.destroy();
       if (this._resizeHandleGfx) this._resizeHandleGfx.destroy();
       if (this._bgImageObj)      this._bgImageObj.destroy();
       if (this._pulseTween)      { this._pulseTween.stop(); this._pulseTween = null; }
@@ -779,6 +955,58 @@ export class GridScene extends Phaser.Scene {
   }
 
   // ── 헬퍼 ─────────────────────────────────────────────────────────────
+
+  /**
+   * 선택된 단일 시설의 크기를 dw/dh(셀)만큼 변경 (v0.5.0 feature 1 — 키보드 리사이즈).
+   * 1~200셀 클램프 + 부지 경계 클램프 + AABB 충돌 시 적용 취소.
+   */
+  _resizeSelectedBy(dw, dh) {
+    const store = useFacilitiesStore.getState();
+    if (store.selectedIds.length !== 1) return;
+    const fac = store.facilities.find((f) => f.id === store.selectedIds[0]);
+    if (!fac) return;
+
+    const { siteSize } = store;
+    const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
+    const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
+
+    let newW = Math.max(1, Math.min(200, fac.size.width  + dw));
+    let newH = Math.max(1, Math.min(200, fac.size.height + dh));
+    // 부지 경계 클램프 (좌상단 고정 — 우/하단으로만 확장)
+    newW = Math.max(1, Math.min(newW, siteCols - fac.position.col));
+    newH = Math.max(1, Math.min(newH, siteRows - fac.position.row));
+
+    if (newW === fac.size.width && newH === fac.size.height) return;
+    if (checkAABB(store.facilities, [fac.id], fac.position.col, fac.position.row, newW, newH)) return;
+
+    store.updateFacility(fac.id, { size: { width: newW, height: newH } });
+  }
+
+  /** 비교(고스트) 레이어 재그리기 — 켜진 레이아웃을 색상별 반투명 오버레이로 (v0.4.2) */
+  _renderGhosts(cellPx = this._cellPx) {
+    if (!this._ghostRend) return;
+    const cmp = useCompareStore.getState();
+    const layouts = useLayoutStore.getState().layouts;
+    const ghostLayouts = cmp.ghostLayoutIds
+      .map((id) => {
+        const lo = layouts.find((l) => l.id === id);
+        if (!lo) return null;
+        const hex = cmp.colorFor(id).replace('#', '');
+        return { id, name: lo.name, colorInt: parseInt(hex, 16), facilities: lo.facilities || [] };
+      })
+      .filter(Boolean);
+    this._ghostRend.render(ghostLayouts, cellPx, cmp.ghostOpacity);
+  }
+
+  /** 이미지 레이어 재동기화 — 다중 참조 이미지를 사이트 크기에 맞춰 갱신 (v0.4.3) */
+  _renderImageLayers() {
+    if (!this._imgLayerRend) return;
+    const layers = useImageLayerStore.getState().layers;
+    const { siteSize } = useFacilitiesStore.getState();
+    const siteWpx = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
+    const siteHpx = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
+    this._imgLayerRend.sync(layers, siteWpx, siteHpx);
+  }
 
   /** Tween onUpdate에서 호출 — 현재 store 상태 + 애니 진행값으로 시설 재그리기 */
   _rerenderFacilities() {
@@ -859,31 +1087,6 @@ export class GridScene extends Phaser.Scene {
 
     cam.centerOn(siteW / 2, siteH / 2);
     this._clampCamera();
-  }
-
-  /**
-   * UI 줌 컨트롤용 — 절대 줌 배율을 뷰포트 중심 고정으로 적용.
-   * 휠 줌과 동일한 클램프·앵커 보정·핸들 재계산 경로 재사용.
-   * @param {number} targetZoom 1.0 = 100%
-   */
-  setZoomLevel(targetZoom) {
-    const cam = this.cameras.main;
-    if (!cam) return;
-    const toZoom = Phaser.Math.Clamp(targetZoom, GRID_CONFIG.zoomMin, GRID_CONFIG.zoomMax);
-    if (toZoom === cam.zoom) return;
-
-    const cx = cam.width / 2, cy = cam.height / 2;
-    const before = cam.getWorldPoint(cx, cy);
-    cam.zoom = toZoom;
-    cam.preRender(1);
-    const after = cam.getWorldPoint(cx, cy);
-    cam.scrollX -= after.x - before.x;
-    cam.scrollY -= after.y - before.y;
-
-    this._clampCamera();
-    if (this.onZoomUpdate) this.onZoomUpdate(cam.zoom);
-    const fState = useFacilitiesStore.getState();
-    this._drawResizeHandles(fState.facilities, fState.selectedIds, this._cellPx);
   }
 
   /** 드래그(팬) 시작 */
@@ -987,7 +1190,7 @@ export class GridScene extends Phaser.Scene {
     if (this.textures.exists(key)) this.textures.remove(key);
   }
 
-  /** 배경 표시 크기·위치 계산 (사이트 크기 × bgScale, offset 반영) */
+  /** 배경 표시 크기·위치 계산 (사이트 크기 × bgScaleX/Y, offset 반영 — v0.5.1 축 분리) */
   _applyBgTransform() {
     if (!this._bgImageObj) return;
     const { siteSize } = useFacilitiesStore.getState();
@@ -1194,6 +1397,11 @@ export class GridScene extends Phaser.Scene {
       confirmed: false, source: '미확인',
     });
 
+    // 프리셋 시설은 사용자가 저장한 기본 크기 오버라이드 적용 (v0.5.0 feature 3)
+    const eff = FACILITY_DEFAULTS[typeId]
+      ? effectiveDefaultSize(typeId, def.width, def.height)
+      : { width: def.width, height: def.height };
+
     const { siteSize } = store;
     const siteCols = siteSize.widthM  / GRID_CONFIG.cellSize;
     const siteRows = siteSize.heightM / GRID_CONFIG.cellSize;
@@ -1201,10 +1409,10 @@ export class GridScene extends Phaser.Scene {
     const clickedCol = Math.floor(worldX / cellPx);
     const clickedRow = Math.floor(worldY / cellPx);
 
-    const rawCol = clickedCol - Math.floor(def.width  / 2);
-    const rawRow = clickedRow - Math.floor(def.height / 2);
-    const col = Math.max(0, Math.min(rawCol, siteCols - def.width));
-    const row = Math.max(0, Math.min(rawRow, siteRows - def.height));
+    const rawCol = clickedCol - Math.floor(eff.width  / 2);
+    const rawRow = clickedRow - Math.floor(eff.height / 2);
+    const col = Math.max(0, Math.min(rawCol, siteCols - eff.width));
+    const row = Math.max(0, Math.min(rawRow, siteRows - eff.height));
 
     const count = store.facilities.filter((f) => f.typeId === typeId).length;
 
@@ -1216,11 +1424,318 @@ export class GridScene extends Phaser.Scene {
       confirmed: def.confirmed,
       source:    def.source,
       position:  { col, row },
-      size:      { width: def.width, height: def.height },
+      size:      { width: eff.width, height: eff.height },
       color:     def.color,
       capacity:  def.capacity || '',
       notes:     '',
       phase:     1,   // 기본 Phase 1
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  추출 모드 (v0.5.0 feature 5)
+  // ══════════════════════════════════════════════════════════════
+
+  /** 드래그 중 사각형을 격자에 스냅해 미리보기로 그린다 + 치수 라벨 */
+  _drawExtractRubberband(cellPx) {
+    const g = this._extractGfx;
+    if (!g) return;
+    const d = this._extractDrag;
+    const { col, row, w, h } = this._extractCellsFromDrag(cellPx);
+
+    const x = col * cellPx, y = row * cellPx;
+    const pw = w * cellPx, ph = h * cellPx;
+
+    g.clear();
+    g.fillStyle(0x33ddbb, 0.18);
+    g.fillRect(x, y, pw, ph);
+    g.lineStyle(2, 0x33ddbb, 0.95);
+    g.strokeRect(x, y, pw, ph);
+
+    // 치수 라벨 (m)
+    const wM = w * GRID_CONFIG.cellSize;
+    const hM = h * GRID_CONFIG.cellSize;
+    if (!this._extractLabel) {
+      this._extractLabel = this.add.text(0, 0, '', {
+        fontFamily: 'Courier New, monospace', fontSize: '12px',
+        color: '#062018', backgroundColor: '#33ddbb', padding: { x: 4, y: 2 },
+      }).setDepth(14).setResolution(3);
+    }
+    this._extractLabel.setText(`${wM}m × ${hM}m`);
+    this._extractLabel.setPosition(x, y - 18);
+    this._extractLabel.setVisible(true);
+    void d;
+  }
+
+  /** 드래그 시작/현재 좌표 → 격자 셀(col,row,w,h)로 변환 (부지 안으로 클램프) */
+  _extractCellsFromDrag(cellPx) {
+    const d = this._extractDrag;
+    const minX = Math.min(d.startWX, d.curWX);
+    const maxX = Math.max(d.startWX, d.curWX);
+    const minY = Math.min(d.startWY, d.curWY);
+    const maxY = Math.max(d.startWY, d.curWY);
+    return this._worldRectToCells(minX, minY, maxX, maxY, cellPx);
+  }
+
+  /** 월드 사각형 → 격자 셀(col,row,w,h), 부지 경계로 클램프 */
+  _worldRectToCells(minX, minY, maxX, maxY, cellPx) {
+    const { siteSize } = useFacilitiesStore.getState();
+    const siteCols = Math.round(siteSize.widthM  / GRID_CONFIG.cellSize);
+    const siteRows = Math.round(siteSize.heightM / GRID_CONFIG.cellSize);
+
+    let col0 = Math.floor(minX / cellPx);
+    let row0 = Math.floor(minY / cellPx);
+    let col1 = Math.ceil(maxX / cellPx);
+    let row1 = Math.ceil(maxY / cellPx);
+
+    col0 = Math.max(0, Math.min(col0, siteCols - 1));
+    row0 = Math.max(0, Math.min(row0, siteRows - 1));
+    col1 = Math.max(col0 + 1, Math.min(col1, siteCols));
+    row1 = Math.max(row0 + 1, Math.min(row1, siteRows));
+
+    return { col: col0, row: row0, w: col1 - col0, h: row1 - row0 };
+  }
+
+  /** 러버밴드 확정 → 시설 생성 */
+  _finishExtractRect(cellPx) {
+    const g = this._extractGfx;
+    if (g) g.clear();
+    if (this._extractLabel) this._extractLabel.setVisible(false);
+
+    const { col, row, w, h } = this._extractCellsFromDrag(cellPx);
+    if (w < 1 || h < 1) return;
+    // 너무 작은(우발적 클릭) 사각형 무시
+    if (w * cellPx < 4 && h * cellPx < 4) return;
+
+    this._createExtractedFacility(col, row, w, h);
+  }
+
+  /** 추출 결과를 커스텀 시설(미확정)로 보드에 배치 */
+  _createExtractedFacility(col, row, w, h) {
+    const store = useFacilitiesStore.getState();
+    const wM = w * GRID_CONFIG.cellSize;
+    const hM = h * GRID_CONFIG.cellSize;
+    const name = window.prompt(`추출한 시설 이름 (${wM}m × ${hM}m)`, '추출 시설');
+    if (name == null) return; // 취소
+    const finalName = name.trim() || '추출 시설';
+    const count = store.facilities.filter((f) => f.typeId === 'extract').length;
+
+    store.addFacility({
+      id:        `extract_${Date.now()}`,
+      typeId:    'extract',
+      name:      finalName === '추출 시설' ? `추출 시설 #${count + 1}` : finalName,
+      abbrev:    finalName.slice(0, 4),
+      confirmed: false,           // 추출 = 미확정(회색) — 사용자가 확인 필요
+      source:    'image-extract',
+      position:  { col, row },
+      size:      { width: w, height: h },
+      color:     '#33ddbb',
+      capacity:  '',
+      notes:     `이미지 추출 (${wM}m × ${hM}m)`,
+      phase:     1,
+    });
+  }
+
+  /** 화면에 보이는 최상단(배열 마지막) 이미지 레이어 반환, 없으면 null */
+  _topVisibleLayer() {
+    const layers = useImageLayerStore.getState().layers;
+    for (let i = layers.length - 1; i >= 0; i--) {
+      if (layers[i].visible !== false) return layers[i];
+    }
+    return null;
+  }
+
+  /** 레이어가 화면에 그려지는 월드 사각형 {x,y,w,h} */
+  _layerWorldRect(layer) {
+    const { siteSize } = useFacilitiesStore.getState();
+    const siteWpx = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
+    const siteHpx = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
+    const sx = layer.scaleX ?? layer.scale ?? 1;
+    const sy = layer.scaleY ?? layer.scale ?? 1;
+    return {
+      x: layer.offsetX,
+      y: layer.offsetY,
+      w: siteWpx * sx,
+      h: siteHpx * sy,
+    };
+  }
+
+  /**
+   * 레이어 dataUrl을 offscreen canvas로 디코드해 픽셀 접근 준비.
+   * 캐시 히트 시 즉시 cb, 미스 시 비동기 디코드 후 cb. 실패 시 cb(null).
+   * 보안(헌법 0조): 전부 로컬 canvas 처리, 외부 전송 없음.
+   */
+  _ensureExtractCanvas(layer, cb) {
+    const cache = this._extractCanvas;
+    if (cache && cache.dataUrl === layer.dataUrl) { cb(cache); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+        const info = {
+          dataUrl: layer.dataUrl, canvas: c, ctx,
+          w: c.width, h: c.height,
+          data: ctx.getImageData(0, 0, c.width, c.height).data,
+        };
+        this._extractCanvas = info;
+        cb(info);
+      } catch (e) {
+        console.warn('[extract] 픽셀 디코드 실패:', e?.name || e);
+        cb(null);
+      }
+    };
+    img.onerror = () => cb(null);
+    img.src = layer.dataUrl;
+  }
+
+  /**
+   * 자동 인식: 클릭 지점의 색과 연결된 동일색 영역(flood-fill)의
+   * 바운딩 박스를 시설로 추출.
+   */
+  _autoExtractAt(worldX, worldY, cellPx) {
+    const layer = this._topVisibleLayer();
+    if (!layer) {
+      window.alert('자동 인식하려면 먼저 이미지 레이어를 올리고 켜 주세요.');
+      return;
+    }
+    const rect = this._layerWorldRect(layer);
+    if (worldX < rect.x || worldX > rect.x + rect.w ||
+        worldY < rect.y || worldY > rect.y + rect.h) {
+      return; // 이미지 밖 클릭
+    }
+
+    this._ensureExtractCanvas(layer, (info) => {
+      if (!info) return;
+      const { w: natW, h: natH, data } = info;
+      const u = (worldX - rect.x) / rect.w;
+      const v = (worldY - rect.y) / rect.h;
+      const sx = Math.max(0, Math.min(natW - 1, Math.floor(u * natW)));
+      const sy = Math.max(0, Math.min(natH - 1, Math.floor(v * natH)));
+
+      const bbox = this._floodFillBBox(data, natW, natH, sx, sy, 36);
+      if (!bbox) return;
+
+      // 영역이 이미지 거의 전체면(배경 클릭) 무시
+      const areaFrac = ((bbox.maxX - bbox.minX + 1) * (bbox.maxY - bbox.minY + 1)) / (natW * natH);
+      if (areaFrac > 0.9) {
+        window.alert('배경으로 보이는 큰 영역입니다. 시설(건물) 안쪽을 클릭해 주세요.');
+        return;
+      }
+
+      // 이미지 px bbox → 월드 → 셀
+      const bx0 = rect.x + (bbox.minX       / natW) * rect.w;
+      const bx1 = rect.x + ((bbox.maxX + 1) / natW) * rect.w;
+      const by0 = rect.y + (bbox.minY       / natH) * rect.h;
+      const by1 = rect.y + ((bbox.maxY + 1) / natH) * rect.h;
+
+      const { col, row, w, h } = this._worldRectToCells(bx0, by0, bx1, by1, cellPx);
+      if (w < 1 || h < 1) return;
+      this._createExtractedFacility(col, row, w, h);
+    });
+  }
+
+  /**
+   * 4방향 flood-fill로 (sx,sy)와 색이 비슷한 연결 영역의 바운딩 박스 계산.
+   * @param {Uint8ClampedArray} data  RGBA
+   * @param {number} tol  채널별 허용 색 차(합산 기준)
+   * @returns {{minX,minY,maxX,maxY}|null}
+   */
+  _floodFillBBox(data, w, h, sx, sy, tol) {
+    const idx0 = (sy * w + sx) * 4;
+    const tr = data[idx0], tg = data[idx0 + 1], tb = data[idx0 + 2];
+    const visited = new Uint8Array(w * h);
+    const stack = [sy * w + sx];
+    visited[sy * w + sx] = 1;
+    let minX = sx, maxX = sx, minY = sy, maxY = sy;
+    let guard = 0;
+    const maxIter = w * h;
+
+    while (stack.length) {
+      if (++guard > maxIter) break;
+      const p = stack.pop();
+      const px = p % w;
+      const py = (p - px) / w;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+
+      const neighbors = [
+        px > 0     ? p - 1 : -1,
+        px < w - 1 ? p + 1 : -1,
+        py > 0     ? p - w : -1,
+        py < h - 1 ? p + w : -1,
+      ];
+      for (const np of neighbors) {
+        if (np < 0 || visited[np]) continue;
+        const di = np * 4;
+        const diff = Math.abs(data[di] - tr) + Math.abs(data[di + 1] - tg) + Math.abs(data[di + 2] - tb);
+        if (diff <= tol * 3) {
+          visited[np] = 1;
+          stack.push(np);
+        }
+      }
+    }
+
+    if (maxX - minX < 1 && maxY - minY < 1) return null;
+    return { minX, minY, maxX, maxY };
+  }
+
+  /**
+   * 부지 경계 자동 생성: 최상단 이미지의 "내용 영역"(배경 여백 제외)
+   * 바운딩 박스를 부지 격자(0,0)~(siteW,siteH)에 맞춰 정렬한다.
+   * (미터 환산은 알 수 없으므로 부지 크기는 유지하고 이미지를 격자에 맞춤)
+   */
+  _autoGenerateSite() {
+    const layer = this._topVisibleLayer();
+    if (!layer) {
+      window.alert('부지 경계를 자동 생성하려면 먼저 부지 이미지를 올리고 켜 주세요.');
+      return;
+    }
+    this._ensureExtractCanvas(layer, (info) => {
+      if (!info) return;
+      const { w: natW, h: natH, data } = info;
+
+      // 내용 bbox: 흰/투명 배경이 아닌 픽셀의 범위
+      let minX = natW, minY = natH, maxX = -1, maxY = -1;
+      const step = Math.max(1, Math.floor(Math.min(natW, natH) / 600)); // 대형 이미지 샘플링
+      for (let y = 0; y < natH; y += step) {
+        for (let x = 0; x < natW; x += step) {
+          const di = (y * natW + x) * 4;
+          const alpha = data[di + 3];
+          const r = data[di], g = data[di + 1], b = data[di + 2];
+          const nearWhite = r > 244 && g > 244 && b > 244;
+          if (alpha > 16 && !nearWhite) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < 0) {
+        window.alert('이미지에서 내용 영역을 찾지 못했습니다.');
+        return;
+      }
+
+      const cbW = Math.max(1, maxX - minX + 1);
+      const { siteSize } = useFacilitiesStore.getState();
+      const siteWpx = (siteSize.widthM  / GRID_CONFIG.cellSize) * this._cellPx;
+      const siteHpx = (siteSize.heightM / GRID_CONFIG.cellSize) * this._cellPx;
+
+      // 가로 기준 fit: 내용 폭이 부지 폭과 같아지도록 uniform scale
+      const scale = natW / cbW;
+      const offsetX = -(minX / natW) * siteWpx * scale;
+      const offsetY = -(minY / natH) * siteHpx * scale;
+
+      const imgStore = useImageLayerStore.getState();
+      imgStore.setScale(layer.id, scale);
+      imgStore.setOffset(layer.id, offsetX, offsetY);
+      void siteHpx;
     });
   }
 }

@@ -10,6 +10,14 @@
  */
 import { PHASE_COLORS } from './config.js';
 
+/** 색상 명도 조절 — factor>1 밝게, <1 어둡게 (SimCity풍 베벨/그림자용) */
+function shade(colorInt, factor) {
+  const r = Math.max(0, Math.min(255, Math.round(((colorInt >> 16) & 0xff) * factor)));
+  const g = Math.max(0, Math.min(255, Math.round(((colorInt >> 8) & 0xff) * factor)));
+  const b = Math.max(0, Math.min(255, Math.round((colorInt & 0xff) * factor)));
+  return (r << 16) | (g << 8) | b;
+}
+
 export class FacilityRenderer {
   constructor(scene) {
     this.scene = scene;
@@ -57,14 +65,12 @@ export class FacilityRenderer {
         fac.position.col + fac.size.width  > siteCols ||
         fac.position.row + fac.size.height > siteRows;
 
-      // ── 색상 결정: 사용자 지정 색을 항상 우선 (미확정은 아래 해치 오버레이로 표시)
-      const colorHex = fac.color || (isConfirmed ? '#6b9fff' : '#888888');
+      // ── 색상 결정
+      const colorHex = isConfirmed ? (fac.color || '#6b9fff') : '#888888';
       const colorInt = parseInt(colorHex.replace('#', ''), 16);
 
       // 페이드인 alpha 배율 (0~1, 애니 없으면 1.0)
       const a = facAnim[fac.id] !== undefined ? facAnim[fac.id] : 1;
-      // 시설별 채우기 농도 (0~1, 미설정 시 1.0)
-      const op = fac.opacity !== undefined ? fac.opacity : 1;
 
       // 2.5D 높이 오프셋 (평면일 때 lift=0 → yDraw === y, 기존 경로와 동일)
       const lift  = view2_5d ? Math.min(w, h) * 0.4 : 0;
@@ -76,17 +82,28 @@ export class FacilityRenderer {
         const gCh = Math.floor(((colorInt >>  8) & 0xff) * 0.6);
         const bCh = Math.floor(( colorInt        & 0xff) * 0.6);
         const darkerInt = (rCh << 16) | (gCh << 8) | bCh;
-        g.fillStyle(darkerInt, (isSelected ? 0.7 : 0.55) * a * op);
+        g.fillStyle(darkerInt, (isSelected ? 0.7 : 0.55) * a);
         g.fillRect(x, y + h - lift, w, lift);
       }
 
-      // ── 윗면(평면일 때는 전체면) 채우기
-      g.fillStyle(colorInt, (isSelected ? 0.55 : 0.35) * a * op);
+      // (v0.5.1 — 그림자 제거: SimCity풍 드롭 섀도가 과대해 보여 삭제. 베벨·외곽선은 유지)
+
+      // ── 윗면(평면일 때는 전체면) 채우기 — 솔리드 타일
+      g.fillStyle(colorInt, (isSelected ? 0.72 : 0.58) * a);
       g.fillRect(x, yDraw, w, h);
+
+      // ── 입체 베벨: 상단 하이라이트 + 하단 음영 (소프트 셰이딩)
+      if (!view2_5d && Math.min(w, h) > 6) {
+        const band = Math.max(1.5, Math.min(w, h) * 0.16);
+        g.fillStyle(shade(colorInt, 1.35), 0.30 * a);   // 위 하이라이트
+        g.fillRect(x, yDraw, w, band);
+        g.fillStyle(shade(colorInt, 0.55), 0.30 * a);   // 아래 음영
+        g.fillRect(x, yDraw + h - band, w, band);
+      }
 
       // confirmed: false → 회색 해치 오버레이
       if (!isConfirmed) {
-        g.fillStyle(0xaaaaaa, 0.12 * a);
+        g.fillStyle(0xaaaaaa, 0.18 * a);
         g.fillRect(x, yDraw, w, h);
       }
 
@@ -94,9 +111,9 @@ export class FacilityRenderer {
       if (isOutOfBounds) {
         g.lineStyle(2, 0xff3333, a);
       } else if (isSelected) {
-        g.lineStyle(2, 0xffff00, (0.5 + 0.5 * pulse) * a);
+        g.lineStyle(2.5, 0xffff00, (0.5 + 0.5 * pulse) * a);
       } else {
-        g.lineStyle(1, colorInt, a);
+        g.lineStyle(1.25, shade(colorInt, 0.7), 0.95 * a);
       }
       g.strokeRect(x, yDraw, w, h);
 
@@ -109,14 +126,22 @@ export class FacilityRenderer {
         this._abbrevLabels.push(
           this.scene.add.text(0, 0, '', {
             fontFamily: 'Courier New, monospace',
-            color: '#3D2E1F',
+            color: '#ffffff',
           }).setDepth(11).setResolution(4)
         );
       }
       const abbrevLabel = this._abbrevLabels[i];
       const minDim = Math.min(w, h);
-      const fontSize = Math.max(8, Math.min(18, Math.floor(minDim / 5)));
-      abbrevLabel.setStyle({ fontSize: `${fontSize}px`, color: '#3D2E1F', fontFamily: 'Courier New, monospace' });
+      // v0.5.0(feature 2) — 더 크고 진하게: minDim/4, bold + 외곽선으로 가독성↑
+      const fontSize = Math.max(10, Math.min(24, Math.floor(minDim / 4)));
+      abbrevLabel.setStyle({
+        fontSize: `${fontSize}px`,
+        color: '#ffffff',
+        fontFamily: 'Courier New, monospace',
+        fontStyle: 'bold',
+        stroke: '#1a1208',
+        strokeThickness: Math.max(2, Math.floor(fontSize / 6)),
+      });
       abbrevLabel.setText(abbrevText);
       abbrevLabel.setPosition(
         x + w / 2 - abbrevLabel.width  / 2,

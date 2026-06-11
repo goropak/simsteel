@@ -63,7 +63,9 @@ export const useFacilitiesStore = create((set, get) => ({
 
   /**
    * 새 커스텀 시설 정의 추가.
-   * @param {{ name, width, height, label?, color? }} def
+   * @param {{ name, width, height, label?, color?, categoryId? }} def
+   *   categoryId: 'custom'(기본) 또는 기존 프리셋 카테고리 id(예: 'ironmaking').
+   *   feature 2 — 같은 공정의 추가 인스턴스는 기존 카테고리 아래에 중첩.
    * @returns 생성된 항목
    */
   addCustomFacility: (def) => {
@@ -72,7 +74,7 @@ export const useFacilitiesStore = create((set, get) => ({
       name:      def.name.trim(),
       width:     Math.max(1, Math.min(200, def.width)),
       height:    Math.max(1, Math.min(200, def.height)),
-      category:  'custom',
+      category:  def.categoryId || 'custom',
       label:     def.label?.trim().slice(0, 4) || def.name.trim().slice(0, 3).toUpperCase(),
       color:     def.color || '#6b9fff',
       source:    'user-defined',
@@ -85,6 +87,33 @@ export const useFacilitiesStore = create((set, get) => ({
       return { customFacilities: updated };
     });
     return item;
+  },
+
+  /**
+   * 여러 커스텀 시설 정의를 한 번에 추가 (엑셀 일괄 입력용 — v0.4.1).
+   * N회 localStorage 쓰기/리렌더 대신 1회로 묶는다.
+   * @param {Array<{ name, width, height, label?, color?, categoryId? }>} defs
+   * @returns 생성된 항목 배열
+   */
+  addCustomFacilities: (defs) => {
+    const items = defs.map((def) => ({
+      id:        crypto.randomUUID(),
+      name:      String(def.name).trim(),
+      width:     Math.max(1, Math.min(200, def.width)),
+      height:    Math.max(1, Math.min(200, def.height)),
+      category:  def.categoryId || 'custom',
+      label:     def.label?.trim().slice(0, 4) || String(def.name).trim().slice(0, 3).toUpperCase(),
+      color:     def.color || '#6b9fff',
+      source:    'user-defined',
+      confirmed: false,
+      createdAt: new Date().toISOString(),
+    }));
+    set((state) => {
+      const updated = [...state.customFacilities, ...items];
+      saveCustomFacilities(updated);
+      return { customFacilities: updated };
+    });
+    return items;
   },
 
   /** 커스텀 시설 정의 삭제 (배치된 인스턴스는 값 복사라 영향 없음) */

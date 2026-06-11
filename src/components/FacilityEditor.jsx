@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 import { useTerrainStore } from '../state/terrainStore.js';
 
@@ -37,19 +37,16 @@ export default function FacilityEditor() {
   const clearTerrainSel     = useTerrainStore((s) => s.clearTerrainSelection);
   const tryRotateTerrain    = useTerrainStore((s) => s.tryRotateTerrain);
 
-  // 단일 선택 시설 (없으면 undefined) — 크기 입력 로컬 상태용
-  const singleFac = selectedIds.length === 1
-    ? facilities.find((f) => f.id === selectedIds[0])
-    : undefined;
-  // 크기(m) 입력은 로컬 상태로 자유 타이핑 → blur/Enter에서 커밋 (키 입력마다 클램프 방지)
-  const [wText, setWText] = useState('');
-  const [hText, setHText] = useState('');
-  useEffect(() => {
-    if (singleFac) {
-      setWText(String(singleFac.size.width * 5));
-      setHText(String(singleFac.size.height * 5));
-    }
-  }, [singleFac?.id, singleFac?.size.width, singleFac?.size.height]);
+  // v0.5.1 (대통령 요청 #4) — 다른 패널과 동일한 열기/닫기 토글 (기본: 열림)
+  const [open, setOpen] = useState(true);
+  const panelHeader = (title) => (
+    <div style={styles.header}>
+      <span>{title}</span>
+      <button style={styles.toggle} onClick={() => setOpen((v) => !v)}>
+        {open ? '▴ 닫기' : '▾ 열기'}
+      </button>
+    </div>
+  );
 
   // ── 플레이스홀더 or 지형 정보 ───────────────────────────────────────
   if (selectedIds.length === 0) {
@@ -60,7 +57,8 @@ export default function FacilityEditor() {
         const colorCss = TERRAIN_COLORS_CSS[t.type] || '#888888';
         return (
           <aside style={styles.sidebar}>
-            <div style={styles.header}>지형 정보</div>
+            {panelHeader('지형 정보')}
+            {open && <>
             <div style={styles.scroll}>
               <Field label="종류">
                 <div style={{ ...styles.readOnly, color: colorCss, fontWeight: 'bold' }}>
@@ -79,7 +77,10 @@ export default function FacilityEditor() {
             <div style={{ padding: '8px 12px 0', borderTop: '1px solid #2a2a40' }}>
               <button
                 style={{ ...styles.btnRotate, width: '100%' }}
-                onClick={() => tryRotateTerrain(t.id)}
+                onClick={() => {
+                  const ok = tryRotateTerrain(t.id);
+                  if (!ok) window.alert('회전 불가: 부지 경계를 벗어납니다.');
+                }}
               >
                 ↻ 90° 회전 (R키)
               </button>
@@ -91,6 +92,7 @@ export default function FacilityEditor() {
                   removeTerrain(t.id);
               }}>삭제</button>
             </div>
+            </>}
           </aside>
         );
       }
@@ -98,11 +100,13 @@ export default function FacilityEditor() {
 
     return (
       <aside style={styles.sidebar}>
-        <div style={styles.header}>시설 정보</div>
-        <div style={styles.placeholder}>
-          시설을 클릭하여 선택<br />
-          <span style={styles.placeholderSub}>Cmd+클릭: 다중 선택</span>
-        </div>
+        {panelHeader('시설 정보')}
+        {open && (
+          <div style={styles.placeholder}>
+            시설을 클릭하여 선택<br />
+            <span style={styles.placeholderSub}>Cmd+클릭: 다중 선택</span>
+          </div>
+        )}
       </aside>
     );
   }
@@ -111,7 +115,8 @@ export default function FacilityEditor() {
   if (selectedIds.length > 1) {
     return (
       <aside style={styles.sidebar}>
-        <div style={styles.header}>시설 정보</div>
+        {panelHeader('시설 정보')}
+        {open && <>
         <div style={styles.multiPanel}>
           <div style={styles.multiCount}>{selectedIds.length}개 선택됨</div>
           <div style={styles.multiHint}>Cmd+D: 복사 · Delete: 삭제 · R: 회전</div>
@@ -140,12 +145,13 @@ export default function FacilityEditor() {
             선택 해제
           </button>
         </div>
+        </>}
       </aside>
     );
   }
 
   // ── 단일 편집 폼 ──────────────────────────────────────────────────────
-  const fac = singleFac;
+  const fac = facilities.find((f) => f.id === selectedIds[0]);
   if (!fac) return null;
 
   const isCustom = fac.source === 'user-defined';
@@ -162,12 +168,10 @@ export default function FacilityEditor() {
     window.alert(`'${fac.name}'을(를) 사용자 정의 시설로 복사했습니다.\n팔레트 하단 "사용자 정의" 섹션에서 확인하세요.`);
   };
 
-  // 크기 입력 커밋 — 미터(m)를 격자(5m) 단위로 스냅해 셀 수로 저장 (blur/Enter 시점)
-  const commitSize = (axis, raw, setText) => {
-    const m = Math.max(5, Math.min(250, parseInt(raw, 10) || 5));
-    const cells = Math.max(1, Math.round(m / 5));
-    setText(String(cells * 5));
-    updateFacility(fac.id, { size: { ...fac.size, [axis]: cells } });
+  const handleSizeChange = (axis, raw) => {
+    // 팔레트 커스텀 시설(1~200셀)과 동일 범위로 정렬 — 대형 시설 편집 제한 제거
+    const v = Math.max(1, Math.min(200, parseInt(raw, 10) || 1));
+    updateFacility(fac.id, { size: { ...fac.size, [axis]: v } });
   };
 
   const handleDelete = () => {
@@ -177,8 +181,9 @@ export default function FacilityEditor() {
 
   return (
     <aside style={styles.sidebar}>
-      <div style={styles.header}>시설 정보</div>
+      {panelHeader('시설 정보')}
 
+      {open && <>
       <div style={styles.scroll}>
         {/* 이름 */}
         <Field label="이름">
@@ -197,29 +202,38 @@ export default function FacilityEditor() {
           </div>
         </Field>
 
-        {/* 크기 — 미터(m) 직접 입력 (격자 5m 스냅) */}
-        <Field label="크기 (m · 가로×세로)">
+        {/* 크기 */}
+        <Field label="크기 (셀)">
           <div style={styles.row}>
             <label style={styles.miniLabel}>W</label>
             <input
-              style={{ ...styles.input, width: '56px' }}
-              type="number" min={5} max={250} step={5}
-              value={wText}
-              onChange={(e) => setWText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { commitSize('width', wText, setWText); e.currentTarget.blur(); } }}
-              onBlur={() => commitSize('width', wText, setWText)}
+              style={{ ...styles.input, width: '52px' }}
+              type="number" min={1} max={200}
+              value={fac.size.width}
+              onChange={(e) => handleSizeChange('width', e.target.value)}
             />
             <label style={styles.miniLabel}>H</label>
             <input
-              style={{ ...styles.input, width: '56px' }}
-              type="number" min={5} max={250} step={5}
-              value={hText}
-              onChange={(e) => setHText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { commitSize('height', hText, setHText); e.currentTarget.blur(); } }}
-              onBlur={() => commitSize('height', hText, setHText)}
+              style={{ ...styles.input, width: '52px' }}
+              type="number" min={1} max={200}
+              value={fac.size.height}
+              onChange={(e) => handleSizeChange('height', e.target.value)}
             />
             <span style={styles.dimHint}>
-              셀 {fac.size.width}×{fac.size.height}
+              ={fac.size.width * 5}×{fac.size.height * 5}m
+            </span>
+          </div>
+          <div style={styles.kbdHint}>
+            키보드 ←/→ 가로 · ↑/↓ 세로 (Shift=5셀) · 모서리 드래그도 가능
+          </div>
+        </Field>
+
+        {/* 면적 (v0.5.0 — feature 11) */}
+        <Field label="면적">
+          <div style={styles.readOnly}>
+            {(fac.size.width * 5 * fac.size.height * 5).toLocaleString()} m²
+            <span style={styles.readOnlyHint}>
+              &nbsp;({(fac.size.width * 5 * fac.size.height * 5 / 10000).toLocaleString(undefined, { maximumFractionDigits: 2 })} ha · {fac.size.width}×{fac.size.height}셀)
             </span>
           </div>
         </Field>
@@ -279,26 +293,13 @@ export default function FacilityEditor() {
           </div>
         </Field>
 
-        {/* 농도 (채우기 불투명도) — 시설별로 진하게/연하게 */}
-        <Field label="농도">
-          <div style={styles.row}>
-            <input
-              type="range" min={10} max={100} step={5}
-              value={Math.round((fac.opacity ?? 1) * 100)}
-              onChange={(e) => handleChange('opacity', Number(e.target.value) / 100)}
-              style={{ flex: 1, accentColor: '#7777cc', cursor: 'pointer' }}
-            />
-            <span style={styles.dimHint}>{Math.round((fac.opacity ?? 1) * 100)}%</span>
-          </div>
-        </Field>
-
-        {/* 비고 */}
-        <Field label="비고">
+        {/* 비고 (v0.5.0 — feature 10: 높이 확대 + 스크롤 개선) */}
+        <Field label="비고 (자유 메모)">
           <textarea
             style={styles.textarea}
             value={fac.notes}
             onChange={(e) => handleChange('notes', e.target.value)}
-            rows={3}
+            rows={7}
             placeholder="자유 메모..."
           />
         </Field>
@@ -309,7 +310,10 @@ export default function FacilityEditor() {
       <div style={{ padding: '8px 12px 0', borderTop: '1px solid #2a2a40' }}>
         <button
           style={{ ...styles.btnRotate, width: '100%' }}
-          onClick={() => tryRotateSelected()}
+          onClick={() => {
+            const ok = tryRotateSelected();
+            if (!ok) window.alert('회전 불가: 부지 경계 또는 다른 시설과 겹칩니다.');
+          }}
         >
           ↻ 90° 회전 (R키)
         </button>
@@ -334,6 +338,7 @@ export default function FacilityEditor() {
           삭제
         </button>
       </div>
+      </>}
     </aside>
   );
 }
@@ -353,19 +358,20 @@ const fieldStyles = {
 };
 
 const styles = {
+  // v0.5.1 (#4): flex:1·내부 스크롤 → 자연 높이로 전환.
+  // 우측 컬럼(rightCol)이 전체를 스크롤하므로 하단 버튼(회전·색·삭제)이 항상 도달 가능.
   sidebar: {
-    flex: 1,
+    flexShrink: 0,
     background: '#12121c',
     display: 'flex',
     flexDirection: 'column',
     fontFamily: 'Courier New, monospace',
-    overflow: 'hidden',
-    minHeight: 0,
   },
   header: {
     height: '36px',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: '0 12px',
     fontSize: '11px',
     color: '#7777cc',
@@ -373,8 +379,17 @@ const styles = {
     letterSpacing: '1px',
     flexShrink: 0,
   },
+  toggle: {
+    background: 'transparent',
+    border: '1px solid #2a2a40',
+    borderRadius: '3px',
+    color: '#6666aa',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '9px',
+    padding: '2px 6px',
+    cursor: 'pointer',
+  },
   placeholder: {
-    flex: 1,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -391,12 +406,12 @@ const styles = {
     color: '#2a2a44',
   },
   multiPanel: {
-    flex: 1,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
+    padding: '20px 12px',
   },
   multiCount: {
     fontSize: '18px',
@@ -407,8 +422,7 @@ const styles = {
     color: '#444466',
   },
   scroll: {
-    flex: 1,
-    overflowY: 'auto',
+    // v0.5.1 (#4): 내부 스크롤 제거 — 자연 높이, 외부(rightCol) 스크롤 사용
   },
   input: {
     width: '100%',
@@ -424,13 +438,15 @@ const styles = {
   },
   textarea: {
     width: '100%',
+    minHeight: '120px',
     background: '#1a1a28',
     border: '1px solid #2a2a40',
     borderRadius: '3px',
     color: '#aaaadd',
     fontFamily: 'Courier New, monospace',
     fontSize: '11px',
-    padding: '4px 6px',
+    lineHeight: 1.5,
+    padding: '6px 8px',
     boxSizing: 'border-box',
     resize: 'vertical',
     outline: 'none',
@@ -457,6 +473,12 @@ const styles = {
     fontSize: '9px',
     color: '#5555aa',
     marginLeft: '4px',
+  },
+  kbdHint: {
+    fontSize: '9px',
+    color: '#445588',
+    marginTop: '5px',
+    lineHeight: 1.5,
   },
   colorRow: {
     display: 'flex',

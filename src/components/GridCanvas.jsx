@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { GridScene } from '../phaser/GridScene.js';
 import { GRID_CONFIG, GRID_COLORS } from '../phaser/config.js';
 import { setGame } from '../phaser/gameInstance.js';
+import InlineRenameInput from './InlineRenameInput.jsx';
 
 /**
  * Phaser 캔버스 래퍼 컴포넌트.
@@ -89,7 +90,10 @@ export default function GridCanvas({ onCoordUpdate, onZoomUpdate }) {
     <div
       ref={containerRef}
       onContextMenu={(e) => e.preventDefault()}
-      style={{ flex: 1, width: '100%', overflow: 'hidden' }}
-    />
+      style={{ flex: 1, width: '100%', overflow: 'hidden', position: 'relative' }}
+    >
+      {/* v0.5.1 — 맵 위 인라인 이름 편집 오버레이 (더블클릭 시 표시) */}
+      <InlineRenameInput />
+    </div>
   );
 }

@@ -1,64 +1,79 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import GridCanvas from './components/GridCanvas.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import FacilityPalette from './components/FacilityPalette.jsx';
 import FacilityEditor from './components/FacilityEditor.jsx';
 import SiteSizePanel from './components/SiteSizePanel.jsx';
 import SaveLoadPanel from './components/SaveLoadPanel.jsx';
-import ImportPanel from './components/ImportPanel.jsx';
+import ComparePanel from './components/ComparePanel.jsx';
+import ExcelImportPanel from './components/ExcelImportPanel.jsx';
+import ProjectBundlePanel from './components/ProjectBundlePanel.jsx';
 import BgImagePanel from './components/BgImagePanel.jsx';
-import ZoomControl from './components/ZoomControl.jsx';
+import ImageLayersPanel from './components/ImageLayersPanel.jsx';
+import GridPanel from './components/GridPanel.jsx';
+import ExtractPanel from './components/ExtractPanel.jsx';
 
 export default function App() {
   const [coord, setCoord] = useState({ cellX: 0, cellY: 0, mX: 0, mY: 0 });
   const [zoom,  setZoom]  = useState(1.0);
-  // 우측 패널(시설정보·부지크기·레이아웃·배경) 접기 — 닫으면 캔버스가 넓어짐
-  const [rightOpen, setRightOpen] = useState(true);
+  // v0.5.1 (대통령 요청 #5) — 맵 전용 보기: 좌(팔레트)/우(패널) 숨기고 캔버스 풀폭 (세션 한정)
+  const [mapOnly, setMapOnly] = useState(false);
 
   const handleCoordUpdate = useCallback((c) => setCoord(c), []);
   const handleZoomUpdate  = useCallback((z) => setZoom(z),  []);
+
+  // 단축키 F — 입력창 타이핑 중에는 무시
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'f' && e.key !== 'F') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ||
+                 el.tagName === 'SELECT' || el.isContentEditable)) return;
+      setMapOnly((v) => !v);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div style={styles.root}>
       {/* 헤더 */}
       <header style={styles.header}>
         <span style={styles.logo}>simsteel</span>
-        <span style={styles.version}>v0.2.8.9.2</span>
+        <span style={styles.version}>v0.5.1</span>
         <span style={styles.subtitle}>Steel Plant Layout Visualizer</span>
+        <button
+          style={{ ...styles.mapOnlyBtn, ...(mapOnly ? styles.mapOnlyBtnOn : {}) }}
+          onClick={() => setMapOnly((v) => !v)}
+          title="좌/우 패널을 숨기고 맵만 표시 (단축키 F)"
+        >
+          {mapOnly ? '▣ 패널 보이기 (F)' : '⛶ 맵만 보기 (F)'}
+        </button>
       </header>
 
-      {/* 본문: 팔레트 | 캔버스 | 에디터 */}
+      {/* 본문: 팔레트 | 캔버스 | 에디터 (맵 전용 보기 시 캔버스만) */}
       <div style={styles.body}>
-        <FacilityPalette />
+        {!mapOnly && <FacilityPalette />}
 
-        {/* 캔버스 + 줌 컨트롤 오버레이 (좌상단 돋보기) */}
-        <div style={styles.canvasWrap}>
-          <GridCanvas
-            onCoordUpdate={handleCoordUpdate}
-            onZoomUpdate={handleZoomUpdate}
-          />
-          <ZoomControl zoom={zoom} />
-        </div>
+        <GridCanvas
+          onCoordUpdate={handleCoordUpdate}
+          onZoomUpdate={handleZoomUpdate}
+        />
 
-        {/* 캔버스↔우측 패널 경계의 접기 토글 (항상 표시) */}
-        <div style={styles.rightToggleBar}>
-          <button
-            style={styles.rightToggleBtn}
-            onClick={() => setRightOpen((v) => !v)}
-            title={rightOpen ? '패널 닫기 — 캔버스 넓게' : '패널 열기'}
-          >
-            {rightOpen ? '▶' : '◀'}
-          </button>
-        </div>
-
-        {/* 우측: 편집 패널 + 부지 크기 패널 + 저장/불러오기 (닫으면 캔버스가 넓어짐) */}
-        {rightOpen && (
+        {/* 우측: 편집 패널 + 부지 크기 패널 + 저장/불러오기 */}
+        {!mapOnly && (
           <div style={styles.rightCol}>
             <FacilityEditor />
             <SiteSizePanel />
+            <GridPanel />
             <SaveLoadPanel />
-            <ImportPanel />
+            <ComparePanel />
+            <ExcelImportPanel />
+            <ProjectBundlePanel />
             <BgImagePanel />
+            <ImageLayersPanel />
+            <ExtractPanel />
           </div>
         )}
       </div>
@@ -104,6 +119,22 @@ const styles = {
     fontSize: '11px',
     fontFamily: 'Courier New, monospace',
   },
+  mapOnlyBtn: {
+    marginLeft: 'auto',
+    background: '#1a1a2e',
+    border: '1px solid #3a3a60',
+    borderRadius: '3px',
+    color: '#8888dd',
+    fontFamily: 'Courier New, monospace',
+    fontSize: '10px',
+    padding: '4px 10px',
+    cursor: 'pointer',
+  },
+  mapOnlyBtnOn: {
+    background: '#2a2010',
+    border: '1px solid #aa8833',
+    color: '#ddbb55',
+  },
   body: {
     flex: 1,
     display: 'flex',
@@ -111,40 +142,13 @@ const styles = {
     overflow: 'hidden',
     minHeight: 0,
   },
-  canvasWrap: {
-    flex: 1,
-    position: 'relative',
-    display: 'flex',
-    minWidth: 0,
-    overflow: 'hidden',
-  },
-  rightToggleBar: {
-    width: '20px',
-    flexShrink: 0,
-    background: '#12121c',
-    borderLeft: '1px solid #2a2a40',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: '6px',
-  },
-  rightToggleBtn: {
-    background: '#1a1a2a',
-    border: '1px solid #3a3a60',
-    borderRadius: '3px',
-    color: '#8888bb',
-    fontFamily: 'Courier New, monospace',
-    fontSize: '10px',
-    lineHeight: 1,
-    padding: '5px 2px',
-    width: '16px',
-    cursor: 'pointer',
-  },
   rightCol: {
     width: '280px',
     flexShrink: 0,
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden',
+    borderLeft: '1px solid #2a2a40',
+    overflowY: 'auto',
+    overflowX: 'hidden',
   },
 };

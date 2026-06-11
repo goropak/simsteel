@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { FACILITY_CATEGORIES } from '../data/facilityCategories.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
+import { useDefaultSizeStore } from '../state/defaultSizeStore.js';
+import { FACILITY_DEFAULTS } from '../phaser/GridScene.js';
 
 const FIRST_SAVE_KEY = 'simsteel:custom-first-save';
 
@@ -29,17 +31,44 @@ export default function FacilityPalette() {
   const deleteCustomFacility  = useFacilitiesStore((s) => s.deleteCustomFacility);
   const phaseViewEnabled      = useFacilitiesStore((s) => s.phaseViewEnabled);
   const togglePhaseView       = useFacilitiesStore((s) => s.togglePhaseView);
-  const view2_5d              = useFacilitiesStore((s) => s.view2_5d);
-  const setView2_5d           = useFacilitiesStore((s) => s.setView2_5d);
-  const animEnabled           = useFacilitiesStore((s) => s.animEnabled);
-  const setAnimEnabled        = useFacilitiesStore((s) => s.setAnimEnabled);
+  const overrides             = useDefaultSizeStore((s) => s.overrides);
+  const setOverride           = useDefaultSizeStore((s) => s.setOverride);
+  const clearOverride         = useDefaultSizeStore((s) => s.clearOverride);
 
   const [openCategories, setOpenCategories] = useState(() =>
     Object.fromEntries(FACILITY_CATEGORIES.map((c) => [c.id, true]))
   );
   const [showForm, setShowForm] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
-  const [form, setForm] = useState({ name: '', width: '10', height: '10', label: '', color: '#6b9fff' });
+  const [form, setForm] = useState({ name: '', width: '10', height: '10', label: '', color: '#6b9fff', categoryId: 'custom' });
+  // 프리셋 기본 크기 편집 (v0.5.0 feature 3)
+  const [editSizeId, setEditSizeId] = useState(null);
+  const [sizeForm, setSizeForm] = useState({ width: '', height: '' });
+
+  /** 프리셋의 현재 적용 크기(오버라이드 우선, 없으면 코드 기본값) */
+  const effSize = (typeId) => {
+    const base = FACILITY_DEFAULTS[typeId];
+    const ov = overrides[typeId];
+    return {
+      width:  ov?.width  ?? base?.width  ?? 10,
+      height: ov?.height ?? base?.height ?? 10,
+      overridden: !!ov,
+    };
+  };
+
+  const openSizeEditor = (e, typeId) => {
+    e.stopPropagation();
+    const s = effSize(typeId);
+    setSizeForm({ width: String(s.width), height: String(s.height) });
+    setEditSizeId(editSizeId === typeId ? null : typeId);
+  };
+
+  const saveSize = (typeId) => {
+    const w = Math.max(1, Math.min(200, parseInt(sizeForm.width, 10) || 1));
+    const h = Math.max(1, Math.min(200, parseInt(sizeForm.height, 10) || 1));
+    setOverride(typeId, w, h);
+    setEditSizeId(null);
+  };
 
   const toggleCategory = (id) =>
     setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -72,8 +101,8 @@ export default function FacilityPalette() {
       setTimeout(() => setToastMsg(''), 5000);
     }
 
-    addCustomFacility({ name, width: w, height: h, label: form.label.trim() || '', color: form.color });
-    setForm({ name: '', width: '10', height: '10', label: '', color: '#6b9fff' });
+    addCustomFacility({ name, width: w, height: h, label: form.label.trim() || '', color: form.color, categoryId: form.categoryId });
+    setForm({ name: '', width: '10', height: '10', label: '', color: '#6b9fff', categoryId: form.categoryId });
     setShowForm(false);
   };
 
@@ -98,24 +127,31 @@ export default function FacilityPalette() {
        || customFacilities.find((f) => f.id === paletteSelectedTypeId)?.name)
     : null;
 
+  // 커스텀 시설 버튼 렌더러 (카테고리 중첩 + 사용자 정의 섹션 공용)
+  const renderCustomButton = (fac) => {
+    const isSelected = paletteSelectedTypeId === fac.id;
+    return (
+      <button key={fac.id} onClick={() => handleCustomClick(fac)}
+        style={{ ...styles.facilityBtn, ...styles.facilityEnabled, ...(isSelected ? styles.facilitySelected : {}), paddingRight: '4px' }}>
+        <span style={{ ...styles.facilityDot(true, isSelected), background: isSelected ? '#ff6b6b' : fac.color }} />
+        <span style={styles.facilityName}>{fac.name}</span>
+        <span style={styles.customSize}>{fac.width}×{fac.height}</span>
+        <button style={styles.deleteBtn} onClick={(e) => handleDeleteCustom(e, fac.id)} title="삭제">✕</button>
+      </button>
+    );
+  };
+
+  // category가 없는 구버전 항목은 'custom'으로 취급 (하위 호환)
+  const customInCategory = (catId) =>
+    customFacilities.filter((f) => (f.category || 'custom') === catId);
+  const uncategorizedCustom = customFacilities.filter(
+    (f) => (f.category || 'custom') === 'custom'
+  );
+
   return (
     <aside style={styles.sidebar}>
       <div style={styles.header}>
         <span>시설 팔레트</span>
-        <button
-          style={{ ...styles.phaseToggle, ...(animEnabled ? styles.phaseToggleOn : {}) }}
-          onClick={() => setAnimEnabled(!animEnabled)}
-          title="애니메이션 ON/OFF"
-        >
-          애니 {animEnabled ? 'ON' : 'OFF'}
-        </button>
-        <button
-          style={{ ...styles.phaseToggle, ...(view2_5d ? styles.phaseToggleOn : {}) }}
-          onClick={() => setView2_5d(!view2_5d)}
-          title="2.5D 뷰 ON/OFF"
-        >
-          {view2_5d ? '평면 뷰' : '2.5D 뷰'}
-        </button>
         <button
           style={{ ...styles.phaseToggle, ...(phaseViewEnabled ? styles.phaseToggleOn : {}) }}
           onClick={togglePhaseView}
@@ -137,23 +173,66 @@ export default function FacilityPalette() {
               <div>
                 {cat.facilities.map((fac) => {
                   const isSelected = paletteSelectedTypeId === fac.id;
+                  const hasDefault = fac.enabled && !!FACILITY_DEFAULTS[fac.id];
+                  const es = hasDefault ? effSize(fac.id) : null;
+                  const isEditing = editSizeId === fac.id;
                   return (
-                    <button
-                      key={fac.id}
-                      disabled={!fac.enabled}
-                      onClick={() => handleFacilityClick(fac)}
-                      style={{
-                        ...styles.facilityBtn,
-                        ...(fac.enabled ? styles.facilityEnabled : styles.facilityDisabled),
-                        ...(isSelected ? styles.facilitySelected : {}),
-                      }}
-                    >
-                      <span style={styles.facilityDot(fac.enabled, isSelected)} />
-                      <span style={styles.facilityName}>{fac.name}</span>
-                      {!fac.enabled && <span style={styles.comingSoon}>(준비 중)</span>}
-                    </button>
+                    <div key={fac.id}>
+                      <button
+                        disabled={!fac.enabled}
+                        onClick={() => handleFacilityClick(fac)}
+                        style={{
+                          ...styles.facilityBtn,
+                          ...(fac.enabled ? styles.facilityEnabled : styles.facilityDisabled),
+                          ...(isSelected ? styles.facilitySelected : {}),
+                          ...(hasDefault ? { paddingRight: '4px' } : {}),
+                        }}
+                      >
+                        <span style={styles.facilityDot(fac.enabled, isSelected)} />
+                        <span style={styles.facilityName}>{fac.name}</span>
+                        {!fac.enabled && <span style={styles.comingSoon}>(준비 중)</span>}
+                        {hasDefault && (
+                          <>
+                            <span style={{ ...styles.customSize, color: es.overridden ? '#88bb66' : '#445566' }}>
+                              {es.width}×{es.height}{es.overridden ? '*' : ''}
+                            </span>
+                            <button
+                              style={{ ...styles.sizeEditBtn, ...(isEditing ? styles.sizeEditBtnOn : {}) }}
+                              onClick={(e) => openSizeEditor(e, fac.id)}
+                              title="기본 크기 수정"
+                            >✎</button>
+                          </>
+                        )}
+                      </button>
+                      {hasDefault && isEditing && (
+                        <div style={styles.sizeEditor}>
+                          <label style={styles.sizeLabel}>가로</label>
+                          <input
+                            style={styles.sizeInput} type="number" min={1} max={200}
+                            value={sizeForm.width}
+                            onChange={(e) => setSizeForm((p) => ({ ...p, width: e.target.value }))}
+                          />
+                          <label style={styles.sizeLabel}>세로</label>
+                          <input
+                            style={styles.sizeInput} type="number" min={1} max={200}
+                            value={sizeForm.height}
+                            onChange={(e) => setSizeForm((p) => ({ ...p, height: e.target.value }))}
+                          />
+                          <button style={styles.sizeSaveBtn} onClick={() => saveSize(fac.id)} title="저장">✓</button>
+                          {es.overridden && (
+                            <button
+                              style={styles.sizeResetBtn}
+                              onClick={() => { clearOverride(fac.id); setEditSizeId(null); }}
+                              title="코드 기본값으로 복귀"
+                            >↺</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
+                {/* feature 2 — 이 카테고리에 추가된 사용자 정의 시설 (예: 고로2) */}
+                {customInCategory(cat.id).map(renderCustomButton)}
               </div>
             )}
           </div>
@@ -170,6 +249,19 @@ export default function FacilityPalette() {
 
         {showForm && (
           <div style={styles.form}>
+            <div style={styles.formRow}>
+              <label style={styles.formLabel}>분류 *</label>
+              <select
+                style={{ ...styles.formInput, flex: 1, cursor: 'pointer' }}
+                value={form.categoryId}
+                onChange={(e) => handleFormChange('categoryId', e.target.value)}
+              >
+                {FACILITY_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} 아래</option>
+                ))}
+                <option value="custom">사용자 정의 (새 분류)</option>
+              </select>
+            </div>
             <div style={styles.formRow}>
               <label style={styles.formLabel}>이름 *</label>
               <input
@@ -206,21 +298,10 @@ export default function FacilityPalette() {
           </div>
         )}
 
-        {customFacilities.length === 0 && !showForm && (
+        {uncategorizedCustom.length === 0 && !showForm && (
           <div style={styles.emptyHint}>＋ 버튼으로 시설을 만드세요</div>
         )}
-        {customFacilities.map((fac) => {
-          const isSelected = paletteSelectedTypeId === fac.id;
-          return (
-            <button key={fac.id} onClick={() => handleCustomClick(fac)}
-              style={{ ...styles.facilityBtn, ...styles.facilityEnabled, ...(isSelected ? styles.facilitySelected : {}), paddingRight: '4px' }}>
-              <span style={{ ...styles.facilityDot(true, isSelected), background: isSelected ? '#ff6b6b' : fac.color }} />
-              <span style={styles.facilityName}>{fac.name}</span>
-              <span style={styles.customSize}>{fac.width}×{fac.height}</span>
-              <button style={styles.deleteBtn} onClick={(e) => handleDeleteCustom(e, fac.id)} title="삭제">✕</button>
-            </button>
-          );
-        })}
+        {uncategorizedCustom.map(renderCustomButton)}
 
         {/* ── 지형 섹션 (v0.2.4) ── */}
         <div style={styles.sectionDivider} />
@@ -322,6 +403,31 @@ const styles = {
   deleteBtn: {
     background: 'none', border: 'none', color: '#554444', cursor: 'pointer',
     fontSize: '9px', padding: '0 4px', flexShrink: 0, fontFamily: 'Courier New, monospace',
+  },
+  sizeEditBtn: {
+    background: 'none', border: 'none', color: '#667799', cursor: 'pointer',
+    fontSize: '11px', padding: '0 4px', flexShrink: 0, fontFamily: 'Courier New, monospace',
+  },
+  sizeEditBtnOn: { color: '#88bbff' },
+  sizeEditor: {
+    display: 'flex', alignItems: 'center', gap: '4px',
+    padding: '5px 12px 7px 26px', background: '#0e1520',
+  },
+  sizeLabel: { fontSize: '9px', color: '#5577aa', flexShrink: 0 },
+  sizeInput: {
+    width: '42px', background: '#1a2030', border: '1px solid #2a3a50', borderRadius: '3px',
+    color: '#aabbdd', fontFamily: 'Courier New, monospace', fontSize: '10px',
+    padding: '2px 4px', outline: 'none', boxSizing: 'border-box',
+  },
+  sizeSaveBtn: {
+    background: '#102030', border: '1px solid #3a6080', borderRadius: '3px',
+    color: '#88bbdd', fontFamily: 'Courier New, monospace', fontSize: '10px',
+    padding: '2px 6px', cursor: 'pointer', flexShrink: 0,
+  },
+  sizeResetBtn: {
+    background: '#201520', border: '1px solid #604050', borderRadius: '3px',
+    color: '#cc8899', fontFamily: 'Courier New, monospace', fontSize: '10px',
+    padding: '2px 6px', cursor: 'pointer', flexShrink: 0,
   },
 
   form: {

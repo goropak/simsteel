@@ -6,6 +6,67 @@
 
 ## Now
 
+v0.5.1 완료 (2026-06-12) — UX 개선 5건 (대통령 요청, 보좌관=시장 겸직 세션).
+- **#1 이미지 가로/세로 독립 리사이즈**: imageLayerStore·bgImageStore의 균일 scale → scaleX/scaleY 분리. 패널에 🔒 비율 고정 토글(기본 ON=기존 동작) ↔ 🔓 가로/세로 슬라이더 분리. 구버전 단일 scale 값은 로드·번들 import 시 scaleX=scaleY로 자동 마이그레이션(normalizeLayer — projectBundle에도 적용). 배경 코너 핸들 드래그는 양 축 동일 배율로 비균일 비율 보존.
+- **#2 맵 위 인라인 이름 편집**: window.prompt 폐기. 시설 더블클릭 → 그 자리에 DOM input 오버레이(Finder rename UX). 신규 renameStore + InlineRenameInput, GridCanvas 컨테이너 position:relative. Enter/외부클릭=확정, Esc=취소, 휠 줌 시 즉시 확정(오버레이-카메라 어긋남 방지).
+- **#2 부수 — 단축키 오발동 수정(preventive)**: Phaser 키보드는 window 전역 청취라 입력창 타이핑 중 R/Delete/화살표/Cmd+D가 오발동하던 기존 버그를 isTypingInDOM() 가드로 전 핸들러 차단 (시설정보 이름 입력란에서도 동일하게 발생하던 문제).
+- **#3 시설 그림자 제거**: v0.5.0 #14 SimCity풍 드롭 섀도 삭제 (베벨·외곽선·라벨 유지).
+- **#4 시설정보 접이식 패널**: FacilityEditor에 ▴닫기/▾열기 토글(기본 열림, 엑셀 패널과 동일 패턴). flex:1+내부 스크롤 → 자연 높이로 전환해 하단 기능(90° 회전·색·삭제)이 우측 컬럼 스크롤로 항상 도달 가능.
+- **#5 맵 전용 보기**: 헤더 ⛶ 토글 + 단축키 F — 좌(팔레트)/우(패널) 숨기고 캔버스 풀폭, 재클릭 복원. 세션 한정 비영속. GridCanvas ResizeObserver가 리사이즈 자동 대응.
+- APP_VERSION·헤더 v0.5.0→v0.5.1. 보안(헌법 0조): 외부 전송 0줄 유지.
+- 검증: @babel/parser 구문 14개 파일 OK + scale 마이그레이션 시뮬레이션 7/7 PASS. 풀빌드·동작 확인은 대통령 Mac(`npm run build`).
+- ⚠️ **커밋 미실행**: simsteel `.git/index.lock` 스테일 락(2026-06-11 22:10, 0바이트) — 샌드박스 권한 없음. v0.4.0~v0.5.1 작업 전체가 미커밋 상태(HEAD=v0.3.2 시절). 대통령 터미널 조치 필요(아래 명령).
+
+v0.5.0 완료 (2026-06-11) — 14건 일괄 UX 업그레이드 + SimCity 시각화 (대통령 일괄 기획안).
+"100만 번 사용 가정 → 추가기능 추천 + 요청기능 최적화" 지시에 따라 14건 전부 한 번에 구현. AskUserQuestion 확정: 전부 동시 구현 / #5는 사각형+자동인식 둘 다 / #13은 Import-Export 패널·애니/2.5D 토글 둘 다 삭제 / #14는 SimCity 스타일. git push는 하지 않음(법률 #5 — 사용자 승인 대기).
+- **#1 키보드 리사이즈**: 선택 시설을 방향키/단축키로 셀 단위 크기 조정.
+- **#2 인-맵 이름 편집 + 라벨 확대**: 맵에서 직접 시설명 수정(window.prompt), 라벨 가독성 향상.
+- **#3 프리셋 기본 크기 편집** (신규 src/state/defaultSizeStore.js): 팔레트 프리셋별 가로/세로 기본값을 사용자가 ✎로 덮어쓰기·↺ 초기화. localStorage 'simsteel:facility-default-overrides' 영속. FacilityPalette에 인라인 사이즈 에디터 + overridden 표시(*).
+- **#4 격자 농도 독립 분리** (신규 src/state/gridStore.js + GridPanel.jsx): 격자 투명도를 배경 스토어에서 분리해 독립 슬라이더(0~100%). localStorage 'simsteel:grid-opacity' 영속. bgImageStore에서 gridOpacity 제거(중복 제거).
+- **#5 이미지 추출 모드** (신규 src/state/extractStore.js + ExtractPanel.jsx): 참조 이미지 위에서 ① 사각형 드래그 → 그 크기로 커스텀 시설 생성, ② 자동 인식(flood-fill) → 클릭 지점과 같은 색 영역 자동 감지 후 시설 생성, ③ 부지 경계 자동 생성(최상단 이미지 내용 영역을 격자에 정렬). 픽셀 분석 전부 로컬 canvas, 외부 전송 0.
+- **#6 레이아웃 비교 — 체크한 것만 표시**: ComparePanel 동작 정리.
+- **#7 이미지 마우스 드래그 위치 이동**: ImageLayersPanel 카드별 "✋ 마우스로 이동" 토글 → 맵에서 직접 드래그. imageLayerStore activeMoveId 추가.
+- **#8 레이아웃별 단일 색**: 고스트 비교 시 레이아웃마다 균일 색.
+- **#9 엑셀 이름/가로/세로만**: 엑셀 일괄 입력 컬럼 단순화.
+- **#10 비고 영역 확대** / **#11 면적 m² 표시** / **#12 레이아웃 삭제(x)**: 편집 UX 보강.
+- **#13 군더더기 제거**: Import/Export 전용 패널 + 애니메이션/2.5D 토글 삭제(번들 백업이 export 역할 대체).
+- **#14 SimCity 스타일 시각화**: GridScene 시각 강화.
+- **번들 자동 포함**: projectBundle이 simsteel:* 전체를 스냅샷하므로 신규 키(grid-opacity / facility-default-overrides) export/import 자동 포함. applyProjectBundle에 useGridStore·useDefaultSizeStore 재수화 setState 추가(모듈 init 캐시를 import 값으로 즉시 갱신 — reload 없이 반영). APP_VERSION·App.jsx 헤더 v0.4.3→v0.5.0.
+- 검증: @babel/parser 구문 검증 — projectBundle 포함 변경 파일 전부 OK. 풀 빌드(`npm run build`)는 사용자 Mac 필요(rollup/esbuild darwin 전용 바이너리 + 샌드박스 registry 차단으로 linux 바이너리 설치 불가 → 샌드박스 검증 한계는 babel 구문 검사).
+
+v0.4.3 완료 (2026-06-11) — 이미지 레이어(다중) 토글 + 번들 포함 (feature 6).
+- **다중 이미지 레이어**: 단일 배경 트레이싱(bgImageStore)과 별개로, 레이아웃별 참조 이미지를 여러 장 올려 체크박스로 켜고/끄며 겹쳐 비교.
+  - 신규 src/state/imageLayerStore.js — localStorage 'simsteel:image-layers'에 영속 → **새 환경에서도 사라지지 않음**(기존 bgImageStore는 비영속이라 새 PC에서 소실되던 문제 해결). 각 레이어 {id,name,dataUrl,visible,opacity,scale,offsetX,offsetY}. add/remove/toggleVisible/setOpacity/setScale/setOffset/moveLayer.
+  - 신규 src/phaser/ImageLayerRenderer.js — depth 0.6(배경 0.5 위·격자 1 아래), 비대화형. 레이어별 고유 texture key + version 카운터 + `textures.once('addtexture-'+key)` 후 addBase64(=_loadBgTexture 비동기 패턴 답습). 표시 변환은 배경과 동일(사이트 px×scale, offset).
+  - 신규 src/components/ImageLayersPanel.jsx — 다중 업로드(+추가), 카드별 체크 토글·투명도/크기 슬라이더·위치(X/Y px) 입력·순서(▲▼)·삭제. App.jsx 우측 컬럼 배치, 헤더 v0.4.3.
+  - GridScene 가산 배선: imageLayerStore 구독 + _imgLayerRend + _renderImageLayers(), 부지 크기 변경 시 재동기화, destroy 정리.
+  - **번들 자동 포함**: projectBundle이 simsteel:* 전체를 스냅샷하므로 image-layers 키가 export/import에 자동 포함. applyProjectBundle에 imageLayerStore 재수화 추가(메모리 즉시 반영). 복원 토스트에 "이미지 N" 추가.
+  - 보안(헌법 0조 부칙): File API→FileReader→base64→texture 경로만, 외부 전송 0줄. localStorage 용량 초과는 try/catch로 조용히 무시(메모리 유지).
+- 검증: @babel/parser 구문 검증 15개 파일 OK + 로직 시뮬레이션 19/19 PASS(추가/토글/클램프/순서/제거 + transform 수식 + 번들 키 왕복). 풀빌드는 사용자 Mac `npm run build` 필요(rollup/esbuild darwin 전용 + registry 차단).
+
+v0.4.2 완료 (2026-06-11) — 레이아웃 비교(읽기전용 고스트 오버레이) (feature 5).
+- 신규 compareStore.js(GHOST_COLORS, ghostLayoutIds, toggleGhost/clearGhosts/setGhostOpacity/colorFor) — 세션 한정 비영속(의도적, 번들 제외).
+- 신규 GhostRenderer.js(depth 8, 지형 위·시설 아래) — 저장 레이아웃을 색상별 반투명 채움+외곽선으로, 줌≥0.4에서 약어 라벨, hitTest 없음(읽기전용).
+- 신규 ComparePanel.jsx — 레이아웃 체크 토글·색 스와치·투명도 슬라이더. GridScene에 compare/layout store 구독 가산.
+
+v0.4.1 완료 (2026-06-11) — 엑셀(.xlsx) 일괄 시설 입력 (feature 1·4).
+- 법률 #2 Pre-City Education 선행(SheetJS 함정 8건 → lessons-cities.md 기록).
+- 신규 excelFacilities.js(CELL_METERS=5, parseFacilityRows: 분류/이름/가로(m)/세로(m)/약어/색상 → m÷5 셀 변환, 1~200 클램프) + ExcelImportPanel.jsx(lazy import('xlsx'), 템플릿 다운로드 + 업로드 파싱 → addCustomFacilities 일괄).
+- facilitiesStore.addCustomFacilities(defs) — 1회 setState + 1회 localStorage 쓰기 배치. FacilityEditor 크기 상한 50→200.
+- 파서 검증 6/6 PASS(음수 폭 거부 버그 수정: 정규식 strip → parseFloat 직접).
+
+v0.4.0 완료 (2026-06-11) — 팔레트 분류 + 완전 프로젝트 백업/복원 + 시설 크기 정렬.
+- **팔레트 분류 (feature 2)**: 커스텀 시설 생성 폼에 "분류" 드롭다운 추가. 기존 공정(고로/제강 등)의 추가 인스턴스(예: 고로2)는 해당 카테고리 아래 중첩 표시, 진짜 신규 유형만 "사용자 정의" 섹션에 표시.
+  - facilitiesStore.addCustomFacility: categoryId 파라미터 추가(기본 'custom'), category 하드코딩 제거. 하위 호환(category 없음 → 'custom').
+  - _placeFacility 풋프린트 해석은 UUID 기반이라 무영향 — 회귀 0.
+- **완전 프로젝트 번들 (feature 3)**: "한 PC 작업이 다른 PC에서 리셋" 근본 해결. 상태가 흩어진 localStorage 키(custom-facilities/layouts/terrain) + 영속 안 되던 런타임(현재 보드 시설·부지 크기)을 단일 .json으로 export/import.
+  - 신규 src/state/projectBundle.js (buildProjectBundle/applyProjectBundle/validateBundle/downloadProjectBundle) + 신규 ProjectBundlePanel.jsx, App.jsx 우측 컬럼에 배치.
+  - 보안(헌법 0조 부칙): Blob 다운로드 + FileReader, 네트워크 전송 0줄. simsteel: 네임스페이스 키만 복원(오염 방지).
+  - export→import 왕복 7개 검증 PASS(custom/layouts/terrain/런타임 시설/부지 크기/플래그 복원, 비-simsteel 키 제외).
+- **시설 크기 편집 정렬 (feature 1)**: FacilityEditor 시설 크기 편집 상한 50→200셀로 상향(팔레트 커스텀 1~200과 일치, 대형 시설 제한 제거). 부지 크기는 기존 SiteSizePanel(100~10,000m) 유지.
+- 검증: @babel/parser 구문 검증 6개 파일 OK(네이티브 rollup/esbuild는 darwin 전용 + npm registry 차단으로 풀빌드는 사용자 Mac에서 `npm run build` 필요).
+- 잔여 단계: v0.4.1 엑셀(.xlsx) 일괄 입력(SheetJS Pre-City Education 선행), v0.4.2 레이어 비교(읽기전용 고스트), v0.4.3 이미지 레이어 토글+번들 포함.
+
 v0.3.2 완료 (2026-06-03) — 펠릿 플랜트 활성화.
 - GridScene 설비 데이터에 pellet_plant 추가(18×22, abbrev PP, confirmed:false 추정 스펙)
 - facilityCategories pellet_plant enabled:true, 주석 정리
