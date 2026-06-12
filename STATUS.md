@@ -8,7 +8,7 @@
 
 v0.5.1 완료 (2026-06-12) — UX 개선 5건 (대통령 요청, 보좌관=시장 겸직 세션).
 - **#1 이미지 가로/세로 독립 리사이즈**: imageLayerStore·bgImageStore의 균일 scale → scaleX/scaleY 분리. 패널에 🔒 비율 고정 토글(기본 ON=기존 동작) ↔ 🔓 가로/세로 슬라이더 분리. 구버전 단일 scale 값은 로드·번들 import 시 scaleX=scaleY로 자동 마이그레이션(normalizeLayer — projectBundle에도 적용). 배경 코너 핸들 드래그는 양 축 동일 배율로 비균일 비율 보존.
-- **#2 맵 위 인라인 이름 편집**: window.prompt 폐기. 시설 더블클릭 → 그 자리에 DOM input 오버레이(Finder rename UX). 신규 renameStore + InlineRenameInput, GridCanvas 컨테이너 position:relative. Enter/외부클릭=확정, Esc=취소, 휠 줌 시 즉시 확정(오버레이-카메라 어긋남 방지).
+- **#2 맵 위 인라인 이름 편집**: window.prompt 폐기. 시설 더블클릭 → 라벨 그 자리를 덮는 작은 입력칸(Finder rename UX). 신규 renameStore + InlineRenameInput, GridCanvas 컨테이너 position:relative. Enter/외부클릭=확정, Esc=취소, 휠 줌 시 즉시 확정. (1차 구현이 시설 아래 별도 박스로 떠서 핫픽스: 좌표를 포인터 앵커 환산 — pointer.x + (목표월드 − pointer.worldX)×zoom — 으로 교체, 스타일도 라벨 크기로 축소.)
 - **#2 부수 — 단축키 오발동 수정(preventive)**: Phaser 키보드는 window 전역 청취라 입력창 타이핑 중 R/Delete/화살표/Cmd+D가 오발동하던 기존 버그를 isTypingInDOM() 가드로 전 핸들러 차단 (시설정보 이름 입력란에서도 동일하게 발생하던 문제).
 - **#3 시설 그림자 제거**: v0.5.0 #14 SimCity풍 드롭 섀도 삭제 (베벨·외곽선·라벨 유지).
 - **#4 시설정보 접이식 패널**: FacilityEditor에 ▴닫기/▾열기 토글(기본 열림, 엑셀 패널과 동일 패턴). flex:1+내부 스크롤 → 자연 높이로 전환해 하단 기능(90° 회전·색·삭제)이 우측 컬럼 스크롤로 항상 도달 가능.

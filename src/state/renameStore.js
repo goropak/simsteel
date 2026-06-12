@@ -5,8 +5,9 @@
  * GridScene이 더블클릭 시 시설의 화면 좌표(rect)를 계산해 open,
  * GridCanvas 안의 InlineRenameInput이 그 자리에 DOM input을 띄운다.
  *
- * target: null | { facId, name, left, top, width, height }
- *   left/top/width/height — 캔버스 컨테이너 기준 화면 px (카메라 변환 적용 후)
+ * target: null | { facId, name, centerX, centerY, width }
+ *   centerX/centerY — 시설 중앙(=라벨 위치)의 캔버스 기준 화면 px (포인터 앵커 환산)
+ *   width — 시설의 화면 px 폭 (입력칸 폭 산정용)
  */
 import { create } from 'zustand';
 

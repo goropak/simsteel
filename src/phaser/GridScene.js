@@ -548,17 +548,18 @@ export class GridScene extends Phaser.Scene {
           this._lastClick = { id: null, time: 0 };
           const fac = store.facilities.find((f) => f.id === hitFacId);
           if (fac) {
-            // v0.5.1 — window.prompt 대신 그 시설 자리에 인라인 입력창 (Finder rename UX)
-            const wx = fac.position.col * cellPx;
-            const wy = fac.position.row * cellPx;
-            const z = cam.zoom;
+            // v0.5.1 — window.prompt 대신 시설 라벨 자리에서 직접 수정 (Finder rename UX)
+            // 좌표는 포인터 자기 자신을 앵커로 환산 (pointer.x/y=화면, worldX/Y=월드 —
+            // 같은 이벤트의 두 좌표 쌍이라 카메라 수식·worldView 갱신 시점과 무관하게 정확)
+            const z  = cam.zoom;
+            const cx = (fac.position.col + fac.size.width  / 2) * cellPx; // 시설 중앙(=라벨 위치) 월드
+            const cy = (fac.position.row + fac.size.height / 2) * cellPx;
             useRenameStore.getState().openRename({
-              facId:  hitFacId,
-              name:   fac.name,
-              left:   (wx - cam.worldView.x) * z,
-              top:    (wy - cam.worldView.y) * z,
-              width:  fac.size.width  * cellPx * z,
-              height: fac.size.height * cellPx * z,
+              facId:   hitFacId,
+              name:    fac.name,
+              centerX: pointer.x + (cx - pointer.worldX) * z,
+              centerY: pointer.y + (cy - pointer.worldY) * z,
+              width:   fac.size.width * cellPx * z,
             });
           }
           return; // 드래그 시작 안 함

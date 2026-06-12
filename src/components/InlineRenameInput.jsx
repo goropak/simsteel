@@ -3,10 +3,11 @@ import { useRenameStore } from '../state/renameStore.js';
 import { useFacilitiesStore } from '../state/facilitiesStore.js';
 
 /**
- * 맵 위 인라인 이름 편집 입력창 — v0.5.1 (대통령 요청 #2)
+ * 맵 위 인라인 이름 편집 — v0.5.1 (대통령 요청 #2)
  *
- * GridCanvas 컨테이너(position: relative) 안에 절대 위치로 떠서
- * 더블클릭한 시설 라벨 자리에 input을 표시한다 (Finder rename UX).
+ * 별도 박스가 아니라 시설 라벨 "그 자리"를 덮는 작은 입력칸 (Finder rename UX).
+ * GridCanvas 컨테이너(position: relative) 기준 절대 위치 — GridScene이
+ * 더블클릭 시 시설 중앙의 화면 좌표(centerX/centerY)를 계산해 연다.
  *
  * 동작: Enter/외부 클릭(blur) = 확정 · Esc = 취소 · 휠 줌 = 확정 후 닫기
  * (카메라가 움직이면 오버레이 위치가 어긋나므로 휠 발생 시 즉시 커밋).
@@ -50,7 +51,8 @@ function RenameBox({ target, close }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const w = Math.max(80, Math.min(240, target.width * 0.9));
+  // 시설 폭에 맞춘 작은 입력칸 (라벨을 그대로 덮는 느낌)
+  const w = Math.max(72, Math.min(200, target.width * 0.8));
 
   return (
     <input
@@ -66,22 +68,21 @@ function RenameBox({ target, close }) {
       maxLength={60}
       style={{
         position: 'absolute',
-        left: `${target.left + target.width / 2}px`,
-        top: `${target.top + target.height / 2}px`,
+        left: `${target.centerX}px`,
+        top: `${target.centerY}px`,
         transform: 'translate(-50%, -50%)',
         width: `${w}px`,
         zIndex: 30,
-        background: '#1a1a28',
-        border: '1.5px solid #ffff66',
-        borderRadius: '4px',
+        background: 'rgba(20, 18, 10, 0.92)',
+        border: '1px solid #ffff66',
+        borderRadius: '3px',
         color: '#ffffff',
         fontFamily: 'Courier New, monospace',
         fontSize: '12px',
         fontWeight: 'bold',
         textAlign: 'center',
-        padding: '4px 6px',
+        padding: '2px 4px',
         outline: 'none',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.55)',
         boxSizing: 'border-box',
       }}
     />
