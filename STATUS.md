@@ -6,6 +6,16 @@
 
 ## Now
 
+v0.5.2 진행 (2026-06-12) — 서버 저장 + 로그인 + 추출 시설 일반화 (대통령 요청, 겸직 세션). **로드맵 v0.4(Supabase+Auth) 본체 착수.**
+- **서버 저장 (개인 계정)**: Supabase Auth(아이디/비번 — `아이디@simsteel.app` 합성 이메일) + `projects` 테이블(사용자당 1 row = 전체 번들) + RLS 격리. 로그인 시 pull, 보드 변경 1.5s 디바운스 자동저장 + 헤더 "서버에 저장" 수동 버튼. 신규: src/lib/supabase.js·imageStorage.js, src/state/authStore.js·cloudSync.js, src/components/LoginGate.jsx·SyncControls.jsx, supabase/schema.sql, .env.example.
+- **이미지 서버 저장**: 레이어 base64 → Storage 버킷(`project-images/{userId}/`) 업로드, DB엔 storagePath만. pull 시 URL→base64 복원해 기존 Phaser 렌더 파이프 유지.
+- **graceful degradation(자동화 헌장)**: env 없으면 client=null → 로컬 전용 모드로 기존과 동일 동작. 로그인 게이트도 통과. → **Supabase 미설정 상태로 배포해도 앱 안 깨짐.**
+- **추출 시설 = 팔레트 시설과 동일**: `_createExtractedFacility`에서 window.prompt 제거 → 기본 이름 즉시 생성 + 자동 선택(핸들·편집 패널 노출). 추출 모드 자동 종료. 드래그·리사이즈·R회전·색·이름(더블클릭 인라인) 전부 일반 시설과 동일.
+- 법률 #2 Pre-City Education 완료: Supabase 함정 10건 lessons-cities.md 등재(#supabase).
+- APP_VERSION·헤더 v0.5.1→v0.5.2. 의존성 `@supabase/supabase-js` 추가(사용자 Mac `npm install` 필요).
+- 검증: @babel/parser 구문 OK + 이미지 externalize/internalize 로직 시뮬레이션. **Supabase 실연동·로그인·저장/복원은 대통령이 본인 Mac에서 프로젝트 생성·스키마 실행·.env.local 입력 후 확인 필요(샌드박스는 라이브 백엔드 불가).**
+- **셋업 순서**(대통령): ① supabase.com 프로젝트 생성 → ② SQL Editor에 `supabase/schema.sql` 실행 → ③ Auth에서 Confirm email OFF → ④ `.env.local`에 VITE_SUPABASE_URL·ANON_KEY → ⑤ Vercel 환경변수 동일 입력 → `npm install && npm run dev`.
+
 v0.5.1 완료 (2026-06-12) — UX 개선 5건 (대통령 요청, 보좌관=시장 겸직 세션).
 - **#1 이미지 가로/세로 독립 리사이즈**: imageLayerStore·bgImageStore의 균일 scale → scaleX/scaleY 분리. 패널에 🔒 비율 고정 토글(기본 ON=기존 동작) ↔ 🔓 가로/세로 슬라이더 분리. 구버전 단일 scale 값은 로드·번들 import 시 scaleX=scaleY로 자동 마이그레이션(normalizeLayer — projectBundle에도 적용). 배경 코너 핸들 드래그는 양 축 동일 배율로 비균일 비율 보존.
 - **#2 맵 위 인라인 이름 편집**: window.prompt 폐기. 시설 더블클릭 → 라벨 그 자리를 덮는 작은 입력칸(Finder rename UX). 신규 renameStore + InlineRenameInput, GridCanvas 컨테이너 position:relative. Enter/외부클릭=확정, Esc=취소, 휠 줌 시 즉시 확정. (1차 구현이 시설 아래 별도 박스로 떠서 핫픽스: 좌표를 포인터 앵커 환산 — pointer.x + (목표월드 − pointer.worldX)×zoom — 으로 교체, 스타일도 라벨 크기로 축소.)

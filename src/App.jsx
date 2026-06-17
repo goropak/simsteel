@@ -12,6 +12,10 @@ import BgImagePanel from './components/BgImagePanel.jsx';
 import ImageLayersPanel from './components/ImageLayersPanel.jsx';
 import GridPanel from './components/GridPanel.jsx';
 import ExtractPanel from './components/ExtractPanel.jsx';
+import LoginGate from './components/LoginGate.jsx';
+import SyncControls from './components/SyncControls.jsx';
+import { useAuthStore } from './state/authStore.js';
+import { startAutoSync, resetSync } from './state/cloudSync.js';
 
 export default function App() {
   const [coord, setCoord] = useState({ cellX: 0, cellY: 0, mX: 0, mY: 0 });
@@ -21,6 +25,16 @@ export default function App() {
 
   const handleCoordUpdate = useCallback((c) => setCoord(c), []);
   const handleZoomUpdate  = useCallback((z) => setZoom(z),  []);
+
+  // v0.5.2 — 로그인되면 서버 동기화 시작(pull + 자동저장 구독), 로그아웃 시 해제
+  const authStatus = useAuthStore((s) => s.status);
+  const authUser   = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (authStatus === 'signed-in' && authUser?.id) {
+      startAutoSync(authUser.id);
+      return () => resetSync();
+    }
+  }, [authStatus, authUser?.id]);
 
   // 단축키 F — 입력창 타이핑 중에는 무시
   useEffect(() => {
@@ -37,11 +51,12 @@ export default function App() {
   }, []);
 
   return (
+   <LoginGate>
     <div style={styles.root}>
       {/* 헤더 */}
       <header style={styles.header}>
         <span style={styles.logo}>simsteel</span>
-        <span style={styles.version}>v0.5.1</span>
+        <span style={styles.version}>v0.5.2</span>
         <span style={styles.subtitle}>Steel Plant Layout Visualizer</span>
         <button
           style={{ ...styles.mapOnlyBtn, ...(mapOnly ? styles.mapOnlyBtnOn : {}) }}
@@ -50,6 +65,7 @@ export default function App() {
         >
           {mapOnly ? '▣ 패널 보이기 (F)' : '⛶ 맵만 보기 (F)'}
         </button>
+        <SyncControls />
       </header>
 
       {/* 본문: 팔레트 | 캔버스 | 에디터 (맵 전용 보기 시 캔버스만) */}
@@ -81,6 +97,7 @@ export default function App() {
       {/* 하단 상태 바 */}
       <StatusBar coord={coord} zoom={zoom} />
     </div>
+   </LoginGate>
   );
 }
 
@@ -120,7 +137,6 @@ const styles = {
     fontFamily: 'Courier New, monospace',
   },
   mapOnlyBtn: {
-    marginLeft: 'auto',
     background: '#1a1a2e',
     border: '1px solid #3a3a60',
     borderRadius: '3px',

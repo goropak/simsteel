@@ -1511,21 +1511,25 @@ export class GridScene extends Phaser.Scene {
     this._createExtractedFacility(col, row, w, h);
   }
 
-  /** 추출 결과를 커스텀 시설(미확정)로 보드에 배치 */
+  /**
+   * 추출 결과를 일반 시설과 동일하게 보드에 배치 (v0.5.2 — 대통령 요청).
+   * window.prompt 제거 → 기본 이름으로 즉시 생성 + 자동 선택.
+   * 생성 후 선택 상태이므로 팔레트 시설과 완전히 동일하게
+   * 맵에서 드래그 이동·모서리 리사이즈·R 회전·우측 패널(색·이름·삭제) 편집 가능.
+   * 이름은 더블클릭 인라인 편집(InlineRenameInput)으로 바로 수정.
+   */
   _createExtractedFacility(col, row, w, h) {
     const store = useFacilitiesStore.getState();
     const wM = w * GRID_CONFIG.cellSize;
     const hM = h * GRID_CONFIG.cellSize;
-    const name = window.prompt(`추출한 시설 이름 (${wM}m × ${hM}m)`, '추출 시설');
-    if (name == null) return; // 취소
-    const finalName = name.trim() || '추출 시설';
     const count = store.facilities.filter((f) => f.typeId === 'extract').length;
+    const id = `extract_${Date.now()}`;
 
     store.addFacility({
-      id:        `extract_${Date.now()}`,
+      id,
       typeId:    'extract',
-      name:      finalName === '추출 시설' ? `추출 시설 #${count + 1}` : finalName,
-      abbrev:    finalName.slice(0, 4),
+      name:      `추출 시설 #${count + 1}`,
+      abbrev:    'EX',
       confirmed: false,           // 추출 = 미확정(회색) — 사용자가 확인 필요
       source:    'image-extract',
       position:  { col, row },
@@ -1535,6 +1539,13 @@ export class GridScene extends Phaser.Scene {
       notes:     `이미지 추출 (${wM}m × ${hM}m)`,
       phase:     1,
     });
+
+    // 팔레트 배치 시설과 동일 경험: 생성 즉시 선택 → 핸들·편집 패널 노출.
+    // 추출 모드는 끄고(연속 클릭 오작동 방지) 일반 편집 흐름으로 전환.
+    useExtractStore.getState().setExtractMode(false);
+    store.clearSelection();
+    store.selectFacility(id, false);
+    this.input.setDefaultCursor('default');
   }
 
   /** 화면에 보이는 최상단(배열 마지막) 이미지 레이어 반환, 없으면 null */
