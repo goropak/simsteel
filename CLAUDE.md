@@ -27,22 +27,18 @@
 - 외부 결제·과금 관련 작업
 - 데이터 삭제
 
-## 헌법 준수
+## 헌법·법률 준수 (원본을 가리킨다 — 제7조)
 
-헌법 전문: `~/projects/governance/constitution.md`
+조항 본문·전체 목록은 거버넌스 레포가 단일 원본이다. 도시에 베끼지 않는다.
 
-- **제0조**: 비밀값 평문 금지
-- **제1조**: STATUS.md 항상 최신
-- **제2조**: INFRA.md 항상 최신
-- **제3조**: CLAUDE.md 항상 최신
-- **제4조**: 끝난 작업은 archive 처리
-- **제5조**: 작업 의식 준수
-- **제6조**: 작업 종료 의식 수행
+- 헌법 전문: 거버넌스 레포 `governance/constitution.md`
+- 법률 목록·본문: 거버넌스 레포 `governance/laws/` (개수·목록을 여기서 요약하지 않는다)
+- 작업 의식(제5·6조 시행): `governance/laws/cowork-protocol.md`
+- 기술 교훈: `governance/lessons-cities.md` 를 태그로 grep
 
-## 작업 의식
-
-모든 작업은 `~/projects/governance/briefing/cowork-protocol.md`에 따른다.
-이는 헌법 제5조의 시행령이며 의무다.
+거버넌스 레포는 이 도시의 형제 폴더다(상대 위치: `../governance`).
+경로가 기기마다 다르면 상위로 올라가며 `governance/constitution.md` 를 자동 탐색한다.
+절대경로를 박지 않는다.
 
 ## 참조 자료 사용 원칙
 
