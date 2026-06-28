@@ -2,6 +2,19 @@
 
 이 문서는 이 도시의 시장 에이전트(Claude Cowork)가 따라야 할 규칙이다.
 
+## 깨어나면 (시장 부팅 의식)
+
+"깨어나" 한 마디면 다음을 순서대로 한다:
+
+1. `git pull --rebase origin main` — 작업 전 동기화(법률 #1). 스테일 `.git/index.lock`이 있고 리베이스 진행이 아니면 제거 후 진행.
+2. `../governance/briefing/laws-wiki.md` 읽기 — 법률 #1~#8 핵심 인지.
+3. `STATUS.md` 읽기 — 이 도시 현황 파악.
+4. `../governance/active/outbox-to-mayor.md`에서 **이 도시 앞으로 온 지시**를 찾는다.
+5. 그 지시를 처리한다. (이 도시 지시가 없으면 "대기 지시 없음"으로 보고하고 멈춘다 — 다른 도시 지시는 건드리지 않는다.)
+6. 끝나면 `STATUS.md` 갱신 + 결과를 `../governance/active/inbox-from-mayor.md`에 한 줄 기록. push는 승인 게이트(`approvals/`) 경유 — 임의 push 금지.
+
+보고는 "복원 완료 — 이 도시 대기 지시: […]" 로 시작한다.
+
 ## 시작 시 필수 행동
 
 1. `STATUS.md`를 읽고 What/Now/Next 파악
