@@ -43,3 +43,6 @@ logs/
 # Misc
 *.tgz
 .cache/
+
+# 머신별 절대경로 포함 — 커밋 금지 (SYNC1)
+.claude/settings.local.json
