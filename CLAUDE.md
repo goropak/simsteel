@@ -61,6 +61,10 @@
 경로가 기기마다 다르면 상위로 올라가며 `governance/constitution.md` 를 자동 탐색한다.
 절대경로를 박지 않는다.
 
+## 사전 학습 (작업 전 필독)
+- 레이아웃 import: `governance/briefing/education-simsteel-import.md`
+- Phaser 3: `governance/briefing/education-simsteel-phaser.md`
+
 ## 참조 자료 사용 원칙
 
 작업 시작 전 `references/README.md`를 읽고, 관련 자료가 있는지 확인한다.
