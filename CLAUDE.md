@@ -52,13 +52,13 @@
 
 조항 본문·전체 목록은 거버넌스 레포가 단일 원본이다. 도시에 베끼지 않는다.
 
-- 헌법 전문: 거버넌스 레포 `governance/constitution.md`
+- 헌법 전문: 거버넌스 레포 `governance/헌법.md`
 - 법률 목록·본문: 거버넌스 레포 `governance/laws/` (개수·목록을 여기서 요약하지 않는다)
 - 작업 의식(제5·6조 시행): `governance/laws/cowork-protocol.md`
 - 기술 교훈: `governance/lessons-cities.md` 를 태그로 grep
 
 거버넌스 레포는 이 도시의 형제 폴더다(상대 위치: `../governance`).
-경로가 기기마다 다르면 상위로 올라가며 `governance/constitution.md` 를 자동 탐색한다.
+경로가 기기마다 다르면 상위로 올라가며 `governance/헌법.md` 를 자동 탐색한다.
 절대경로를 박지 않는다.
 
 ## 사전 학습 (작업 전 필독)
